@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 
 import { getDb } from "../db/client.js";
 import { auditEvents } from "../db/schema.js";
@@ -20,7 +20,7 @@ export async function listAuditEvents(params: {
   productId?: string;
   limit?: number;
   offset?: number;
-}): Promise<AuditEventRecord[]> {
+}): Promise<{ total: number; items: AuditEventRecord[] }> {
   const db = getDb();
   const limit = Math.max(1, Math.min(params.limit ?? 50, 200));
   const offset = Math.max(0, params.offset ?? 0);
@@ -32,6 +32,13 @@ export async function listAuditEvents(params: {
       )
     : eq(auditEvents.workspaceId, params.workspaceId);
 
+  const totalRow = (
+    await db
+      .select({ total: count() })
+      .from(auditEvents)
+      .where(whereExpr)
+  )[0];
+
   const rows = await db
     .select()
     .from(auditEvents)
@@ -40,16 +47,18 @@ export async function listAuditEvents(params: {
     .limit(limit)
     .offset(offset);
 
-  return rows.map((row) => ({
-    id: row.id,
-    workspaceId: row.workspaceId,
-    actorId: row.actorId,
-    eventType: row.eventType,
-    resourceType: row.resourceType,
-    resourceId: row.resourceId,
-    ...(row.requestId ? { requestId: row.requestId } : {}),
-    metadata: (row.metadata as Record<string, unknown>) ?? {},
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return {
+    total: Number(totalRow?.total ?? 0),
+    items: rows.map((row) => ({
+      id: row.id,
+      workspaceId: row.workspaceId,
+      actorId: row.actorId,
+      eventType: row.eventType,
+      resourceType: row.resourceType,
+      resourceId: row.resourceId,
+      ...(row.requestId ? { requestId: row.requestId } : {}),
+      metadata: (row.metadata as Record<string, unknown>) ?? {},
+      createdAt: row.createdAt.toISOString(),
+    })),
+  };
 }
-

@@ -2,7 +2,7 @@
 // decision log operations. All writes are audited and versioned.
 
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, max } from "drizzle-orm";
+import { and, count, desc, eq, max } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import {
   auditEvents,
@@ -92,18 +92,36 @@ export async function ingestContext(input: IngestInput): Promise<IngestResult> {
         .limit(1)
     )[0];
 
-    const contextPackId = pack
-      ? pack.id
-      : `cp_${input.workspaceId}_${input.productId}_${newId().slice(0, 8)}`;
-
     if (!pack) {
+      const proposedContextPackId = `cp_${input.workspaceId}_${input.productId}_${newId().slice(0, 8)}`;
       await tx.insert(contextPacks).values({
-        id: contextPackId,
+        id: proposedContextPackId,
         workspaceId: input.workspaceId,
         productId: input.productId,
         currentVersionId: null,
+      }).onConflictDoNothing({
+        target: [contextPacks.workspaceId, contextPacks.productId],
       });
+
+      pack = (
+        await tx
+          .select()
+          .from(contextPacks)
+          .where(
+            and(
+              eq(contextPacks.workspaceId, input.workspaceId),
+              eq(contextPacks.productId, input.productId),
+            ),
+          )
+          .limit(1)
+      )[0];
     }
+
+    if (!pack) {
+      throw new Error("Failed to resolve context pack after insert.");
+    }
+
+    const contextPackId = pack.id;
 
     // 2. Compute next version number.
     const maxRow = (
@@ -226,7 +244,7 @@ export async function getContextVersions(
   productId: string,
   limit = 50,
   offset = 0,
-): Promise<VersionListItem[]> {
+): Promise<{ total: number; items: VersionListItem[] }> {
   const db = getDb();
 
   const pack = (
@@ -242,9 +260,16 @@ export async function getContextVersions(
       .limit(1)
   )[0];
 
-  if (!pack) return [];
+  if (!pack) return { total: 0, items: [] };
 
-  return db
+  const totalRow = (
+    await db
+      .select({ total: count() })
+      .from(contextPackVersions)
+      .where(eq(contextPackVersions.contextPackId, pack.id))
+  )[0];
+
+  const items = await db
     .select({
       id: contextPackVersions.id,
       versionNumber: contextPackVersions.versionNumber,
@@ -258,6 +283,8 @@ export async function getContextVersions(
     .orderBy(desc(contextPackVersions.versionNumber))
     .limit(limit)
     .offset(offset);
+
+  return { total: Number(totalRow?.total ?? 0), items };
 }
 
 // ---------------------------------------------------------------------------
@@ -473,8 +500,20 @@ export async function getDecisionLogs(
   productId: string,
   limit = 50,
   offset = 0,
-): Promise<DecisionLogRecord[]> {
+): Promise<{ total: number; items: DecisionLogRecord[] }> {
   const db = getDb();
+  const totalRow = (
+    await db
+      .select({ total: count() })
+      .from(decisionLogs)
+      .where(
+        and(
+          eq(decisionLogs.workspaceId, workspaceId),
+          eq(decisionLogs.productId, productId),
+        ),
+      )
+  )[0];
+
   const rows = await db
     .select()
     .from(decisionLogs)
@@ -488,18 +527,21 @@ export async function getDecisionLogs(
     .limit(limit)
     .offset(offset);
 
-  return rows.map((r) => ({
-    id: r.id,
-    workspaceId: r.workspaceId,
-    productId: r.productId,
-    title: r.title,
-    decision: r.decision,
-    rationale: r.rationale,
-    alternatives: (r.alternatives as string[]) ?? [],
-    evidenceLinks: (r.evidenceLinks as string[]) ?? [],
-    createdBy: r.createdBy,
-    createdAt: r.createdAt.toISOString(),
-  }));
+  return {
+    total: Number(totalRow?.total ?? 0),
+    items: rows.map((r) => ({
+      id: r.id,
+      workspaceId: r.workspaceId,
+      productId: r.productId,
+      title: r.title,
+      decision: r.decision,
+      rationale: r.rationale,
+      alternatives: (r.alternatives as string[]) ?? [],
+      evidenceLinks: (r.evidenceLinks as string[]) ?? [],
+      createdBy: r.createdBy,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  };
 }
 
 export async function getDecisionLogById(

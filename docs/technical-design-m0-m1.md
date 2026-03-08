@@ -31,19 +31,15 @@ It directly supports the following requirements:
    - Decision log CRUD endpoints
    - Context version snapshot and restore operations
 
-3. **AI Structuring Worker**
-   - Converts natural language context into structured entities
-   - Applies confidence scoring and normalization
+3. **AI Structuring Service**
+   - Converts natural language context into structured entities (synchronous request path in M1)
+   - Falls back to deterministic local structuring when AI key/API is unavailable
 
-4. **Job Scheduler**
-   - Context compression batch jobs
-   - Re-index jobs after restore
+4. **Data Layer**
+   - Relational DB (PostgreSQL) for authoritative metadata + JSONB snapshots
+   - Versioned context and decision logs persisted transactionally
 
-5. **Data Layer**
-   - Relational DB (authoritative metadata + version graph)
-   - Object storage (snapshot payloads)
-
-6. **Observability Stack**
+5. **Observability Stack**
    - Audit logs
    - Cost telemetry
    - Service metrics and traces
@@ -51,8 +47,8 @@ It directly supports the following requirements:
 ## 2.2 Deployment Shape (Phase 1)
 
 - Single region to minimize complexity
-- Stateless API and worker services
-- Queue-backed async processing for AI structuring/compression
+- Stateless API service (dedicated worker introduced in later milestones)
+- Synchronous API processing for context ingest and restore in M1
 - Database with daily backups and point-in-time recovery enabled
 
 ## 3. Domain Model (M0-M1)
@@ -67,9 +63,10 @@ It directly supports the following requirements:
 
 3. `context_pack`
    - `id`, `workspace_id`, `product_id`, `current_version_id`, `created_at`, `updated_at`
+   - Unique index on (`workspace_id`, `product_id`)
 
 4. `context_pack_version`
-   - `id`, `context_pack_id`, `version_number`, `summary`, `structured_payload_ref`, `created_by`, `created_at`
+   - `id`, `context_pack_id`, `version_number`, `summary`, `structured_payload`, `created_by`, `created_at`
 
 5. `decision_log`
    - `id`, `workspace_id`, `product_id`, `title`, `decision`, `rationale`, `alternatives`, `evidence_links`, `created_by`, `created_at`
@@ -101,7 +98,7 @@ It directly supports the following requirements:
    - Returns version history (paged)
 
 4. `POST /api/v1/workspaces/:workspaceId/products/:productId/context-pack/restore`
-   - Input: `version_id`
+   - Input: `version` (positive integer)
    - Output: new version created from restored snapshot
 
 ## 4.2 Decision Log APIs
@@ -112,22 +109,22 @@ It directly supports the following requirements:
 
 ## 4.3 API Contract Principles
 
-- Idempotency key required for write endpoints.
+- Idempotency key is optional but recommended for write endpoints.
 - Structured error format: `code`, `message`, `request_id`, `details`.
 - Audit event emitted for each mutating operation.
 
 ## 5. Context Ingestion Pipeline
 
 1. API receives natural language context payload.
-2. Request persisted as raw event and queued for worker processing.
-3. AI structuring worker outputs normalized context entities.
-4. `context_pack_version` snapshot saved (DB metadata + object payload).
-5. `context_pack.current_version_id` updated atomically.
-6. Completion event published for UI refresh.
+2. Input is structured synchronously via AI service.
+3. If AI key/API fails, deterministic fallback parser is used.
+4. `context_pack_version` snapshot saved in DB (`structured_payload` JSONB).
+5. `context_pack.current_version_id` updated atomically in the same transaction.
+6. Audit event is emitted after successful mutation.
 
 Failure handling:
-- Parsing failures produce a recoverable error with retry up to N attempts.
-- Unrecoverable payload errors are marked `failed_validation` and surfaced in UI.
+- Schema shape issues are rejected before persistence.
+- AI errors degrade to fallback parser in M1 to preserve ingest availability.
 
 ## 6. Context Compression Strategy (FR-CL-005)
 
@@ -159,19 +156,22 @@ Failure handling:
 2. Logs
    - Structured JSON logs with `workspace_id`, `product_id`, `request_id`
 3. Traces
-   - End-to-end trace across API -> queue -> worker -> DB
+   - End-to-end trace across API -> AI structurer -> DB
 4. Cost telemetry
    - Token usage and estimated AI cost per workspace (daily aggregation)
 
 ## 9. Test Strategy (M0-M1)
 
 1. Contract tests for API schemas and error shapes
-2. Integration tests:
+2. Route tests:
+   - Query validation for pagination (`limit`, `offset`)
+   - List response contract (`total`, `limit`, `offset`, `items`)
+3. Integration tests:
    - Ingestion pipeline happy path
    - Restore path (version N -> restore -> version N+1)
    - Workspace isolation constraints
-3. Migration tests for schema evolution
-4. Load sanity checks for ingestion burst handling
+4. Migration tests for schema evolution
+5. Load sanity checks for ingestion burst handling
 
 ## 10. M0 and M1 Execution Plan
 
@@ -186,7 +186,7 @@ Failure handling:
 
 ## M1 (Weeks 3-5)
 
-1. Implement context ingestion API and worker pipeline
+1. Implement context ingestion API and structuring pipeline
 2. Implement context version persistence and listing
 3. Implement restore endpoint and atomic current-version switch
 4. Implement decision log create/read flows
@@ -197,7 +197,7 @@ Failure handling:
 1. AI structuring inconsistency
    - Mitigation: strict schema validation and fallback parser templates
 2. Version restore race conditions
-   - Mitigation: transaction + row-level lock for `current_version_id`
+   - Mitigation: transaction + context-pack uniqueness + conflict-safe upsert/read flow
 3. Cost spikes in early iterations
    - Mitigation: hard per-workspace daily budget and compression thresholds
 4. Hidden coupling between modules

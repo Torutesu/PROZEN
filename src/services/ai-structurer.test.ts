@@ -1,7 +1,14 @@
 // Unit tests for the AI structurer fallback (no API key required).
 
-import { describe, it, expect } from "vitest";
-import { buildSectionsFromRawText } from "./ai-structurer.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  buildSectionsFromRawText,
+  structureContextInput,
+} from "./ai-structurer.js";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("buildSectionsFromRawText", () => {
   it("extracts product vision from first line", () => {
@@ -36,5 +43,19 @@ describe("buildSectionsFromRawText", () => {
   it("always includes an open question", () => {
     const result = buildSectionsFromRawText("Any input.");
     expect(result.sections.openQuestions.length).toBeGreaterThan(0);
+  });
+
+  it("uses fallback structuring when API key is missing", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    const result = await structureContextInput(
+      "Vision line.\nTarget users line.\nGoals line.",
+    );
+    expect(result.sections.productVision[0]?.statement).toBe("Vision line.");
+    expect(result.sections.targetUsers[0]?.statement).toBe("Target users line.");
+  });
+
+  it("returns a default summary when input is blank", () => {
+    const result = buildSectionsFromRawText("   ");
+    expect(result.summary).toBe("No context provided.");
   });
 });

@@ -16,6 +16,7 @@ import {
   checkIdempotency,
   saveIdempotencyResponse,
 } from "../services/idempotency.js";
+import { parsePaginationQuery } from "./pagination.js";
 
 const app = createApp();
 
@@ -132,12 +133,18 @@ app.get(`${BASE}/context-pack`, async (c) => {
 // GET .../context-pack/versions
 app.get(`${BASE}/context-pack/versions`, async (c) => {
   const { workspaceId, productId } = c.req.param();
-  const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
-  const offset = Number(c.req.query("offset") ?? 0);
+  const pagination = parsePaginationQuery(
+    c.req.query("limit"),
+    c.req.query("offset"),
+  );
+  if (!pagination.ok) {
+    return apiError(c, 422, "invalid_query", pagination.message);
+  }
 
   try {
+    const { limit, offset } = pagination.value;
     const versions = await getContextVersions(workspaceId, productId, limit, offset);
-    return c.json({ total: versions.length, limit, offset, items: versions });
+    return c.json({ total: versions.total, limit, offset, items: versions.items });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to list versions.";
     return apiError(c, 500, "fetch_error", message);

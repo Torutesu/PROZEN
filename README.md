@@ -136,11 +136,34 @@ Active planning phase — PRD v1.3 (March 2026) · Select KK
 
 - Node.js `>= 20`
 - npm `>= 10`
+- PostgreSQL `>= 14` (required for M1 APIs)
 
 ### Install
 
 ```bash
 npm install
+```
+
+### Configure Environment
+
+```bash
+export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/prozen
+```
+
+Optional variables:
+
+```bash
+# API auth for /api/* endpoints (if unset, local auth is skipped)
+export PROZEN_API_KEY=your-local-api-key
+
+# Claude structuring key (if unset, ingest uses deterministic fallback parser)
+export ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+### Apply Migrations
+
+```bash
+npm run migrate
 ```
 
 ### Run Local Runtime
@@ -206,7 +229,7 @@ Example ingest request:
 ```bash
 curl -X POST http://127.0.0.1:8787/api/v1/workspaces/ws_select_001/products/prozen_web/context-pack/ingest \
   -H 'content-type: application/json' \
-  -d '{"input":"PROZEN helps solo PMs focus on bets.\nMain KPI is day-7 retention.\nConstraint: no editor-first UI.","createdBy":"founder@selectkk.com"}'
+  -d '{"input":"PROZEN helps solo PMs focus on bets.\nMain KPI is day-7 retention.\nConstraint: no editor-first UI.","tags":["onboarding","retention"]}'
 ```
 
 Idempotency for `POST` endpoints:

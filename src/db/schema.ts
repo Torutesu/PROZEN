@@ -84,22 +84,26 @@ export const auditEvents = pgTable("audit_events", {
 // M1 — Context Layer (0002_m1_context_layer.sql)
 // ---------------------------------------------------------------------------
 
-export const contextPacks = pgTable("context_packs", {
-  id: text("id").primaryKey(),
-  workspaceId: text("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-  productId: text("product_id").notNull(),
-  // currentVersionId has a deferred FK to context_pack_versions (circular ref)
-  // The constraint is enforced by the DB migration; not repeated here.
-  currentVersionId: text("current_version_id"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const contextPacks = pgTable(
+  "context_packs",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: text("product_id").notNull(),
+    // currentVersionId has a deferred FK to context_pack_versions (circular ref)
+    // The constraint is enforced by the DB migration; not repeated here.
+    currentVersionId: text("current_version_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.productId)],
+);
 
 export const contextPackVersions = pgTable(
   "context_pack_versions",

@@ -4,10 +4,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type {
   ContextPackSections,
-  ContextStatement,
-  KpiDefinition,
-  GlossaryTerm,
 } from "../domain/context-pack.js";
+import { KPI_CADENCE } from "../domain/context-pack.js";
 
 const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 
@@ -53,43 +51,164 @@ export interface StructuringResult {
 export async function structureContextInput(
   rawInput: string,
 ): Promise<StructuringResult> {
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 4096,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Structure this product context input:\n\n${rawInput}`,
-      },
-    ],
-  });
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("AI structurer returned no text content");
+  if (!hasAnthropicApiKey()) {
+    return buildSectionsFromRawText(rawInput);
   }
 
-  // Strip markdown code fences if the model emits them despite instructions.
-  const raw = textBlock.text
-    .replace(/^```(?:json)?\s*/m, "")
-    .replace(/\s*```\s*$/m, "")
-    .trim();
+  try {
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Structure this product context input:\n\n${rawInput}`,
+        },
+      ],
+    });
 
-  const parsed = JSON.parse(raw) as StructuringResult;
-  validateStructuringResult(parsed);
-  return parsed;
+    const textBlock = response.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("AI structurer returned no text content");
+    }
+
+    // Strip markdown code fences if the model emits them despite instructions.
+    const raw = textBlock.text
+      .replace(/^```(?:json)?\s*/m, "")
+      .replace(/\s*```\s*$/m, "")
+      .trim();
+
+    const parsed = JSON.parse(raw) as StructuringResult;
+    validateStructuringResult(parsed);
+    return parsed;
+  } catch {
+    return buildSectionsFromRawText(rawInput);
+  }
+}
+
+function hasAnthropicApiKey(): boolean {
+  const apiKey = process.env["ANTHROPIC_API_KEY"];
+  return typeof apiKey === "string" && apiKey.trim().length > 0;
 }
 
 function validateStructuringResult(result: unknown): asserts result is StructuringResult {
-  if (
-    typeof result !== "object" ||
-    result === null ||
-    typeof (result as Record<string, unknown>)["summary"] !== "string" ||
-    typeof (result as Record<string, unknown>)["sections"] !== "object"
-  ) {
-    throw new Error("AI structurer returned invalid JSON shape");
+  if (!isRecord(result)) {
+    throw new Error("AI structurer returned invalid JSON shape: root object is missing.");
   }
+
+  if (typeof result["summary"] !== "string" || result["summary"].trim().length === 0) {
+    throw new Error("AI structurer returned invalid JSON shape: summary is required.");
+  }
+
+  const sections = result["sections"];
+  if (!isRecord(sections)) {
+    throw new Error("AI structurer returned invalid JSON shape: sections is required.");
+  }
+
+  assertContextStatements(sections["productVision"], "productVision");
+  assertContextStatements(sections["targetUsers"], "targetUsers");
+  assertContextStatements(sections["goals"], "goals");
+  assertContextStatements(sections["constraints"], "constraints");
+  assertKpiDefinitions(sections["kpiDefinitions"]);
+  assertGlossary(sections["glossary"]);
+  assertContextStatements(sections["openQuestions"], "openQuestions");
+}
+
+function assertContextStatements(value: unknown, field: string): void {
+  if (!Array.isArray(value)) {
+    throw new Error(`AI structurer returned invalid sections.${field}: array is required.`);
+  }
+  for (const item of value) {
+    if (!isRecord(item)) {
+      throw new Error(`AI structurer returned invalid sections.${field}: item must be object.`);
+    }
+    if (typeof item["id"] !== "string" || item["id"].trim().length === 0) {
+      throw new Error(`AI structurer returned invalid sections.${field}: id is required.`);
+    }
+    if (
+      typeof item["statement"] !== "string" ||
+      item["statement"].trim().length === 0
+    ) {
+      throw new Error(`AI structurer returned invalid sections.${field}: statement is required.`);
+    }
+    if (
+      item["confidence"] !== undefined &&
+      (typeof item["confidence"] !== "number" ||
+        Number.isNaN(item["confidence"]) ||
+        item["confidence"] < 0 ||
+        item["confidence"] > 1)
+    ) {
+      throw new Error(`AI structurer returned invalid sections.${field}: confidence must be 0..1.`);
+    }
+    if (
+      item["evidenceLinks"] !== undefined &&
+      (!Array.isArray(item["evidenceLinks"]) ||
+        item["evidenceLinks"].some((link) => typeof link !== "string"))
+    ) {
+      throw new Error(`AI structurer returned invalid sections.${field}: evidenceLinks must be string[].`);
+    }
+  }
+}
+
+function assertKpiDefinitions(value: unknown): void {
+  if (!Array.isArray(value)) {
+    throw new Error("AI structurer returned invalid sections.kpiDefinitions: array is required.");
+  }
+  for (const item of value) {
+    if (!isRecord(item)) {
+      throw new Error("AI structurer returned invalid kpiDefinitions: item must be object.");
+    }
+    if (
+      typeof item["metricId"] !== "string" ||
+      typeof item["metricName"] !== "string" ||
+      typeof item["definition"] !== "string"
+    ) {
+      throw new Error("AI structurer returned invalid kpiDefinitions: metric fields are required.");
+    }
+    if (
+      !isKpiCadence(item["cadence"])
+    ) {
+      throw new Error("AI structurer returned invalid kpiDefinitions: cadence is invalid.");
+    }
+    if (
+      item["targetDirection"] !== undefined &&
+      item["targetDirection"] !== "increase" &&
+      item["targetDirection"] !== "decrease"
+    ) {
+      throw new Error("AI structurer returned invalid kpiDefinitions: targetDirection is invalid.");
+    }
+  }
+}
+
+function assertGlossary(value: unknown): void {
+  if (!Array.isArray(value)) {
+    throw new Error("AI structurer returned invalid sections.glossary: array is required.");
+  }
+  for (const item of value) {
+    if (!isRecord(item)) {
+      throw new Error("AI structurer returned invalid glossary: item must be object.");
+    }
+    if (
+      typeof item["term"] !== "string" ||
+      item["term"].trim().length === 0 ||
+      typeof item["definition"] !== "string" ||
+      item["definition"].trim().length === 0
+    ) {
+      throw new Error("AI structurer returned invalid glossary: term and definition are required.");
+    }
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isKpiCadence(value: unknown): value is (typeof KPI_CADENCE)[number] {
+  return (
+    typeof value === "string" &&
+    KPI_CADENCE.includes(value as (typeof KPI_CADENCE)[number])
+  );
 }
 
 // Fallback: build a minimal ContextPackSections from raw text
@@ -114,6 +233,15 @@ export function buildSectionsFromRawText(input: string): StructuringResult {
     ],
   };
 
-  const summary = input.replace(/\s+/g, " ").trim().slice(0, 297);
-  return { summary: summary.length < input.length ? `${summary}...` : summary, sections };
+  const normalizedInput = input.replace(/\s+/g, " ").trim();
+  const summarySource =
+    normalizedInput.length > 0 ? normalizedInput : "No context provided.";
+  const clippedSummary = summarySource.slice(0, 297);
+  return {
+    summary:
+      clippedSummary.length < summarySource.length
+        ? `${clippedSummary}...`
+        : clippedSummary,
+    sections,
+  };
 }
