@@ -90,7 +90,11 @@ test.describe("GitHub Living Spec", () => {
     const hasEvents = await eventsList.isVisible({ timeout: 3_000 }).catch(() => false);
     // Either events exist or the empty state shows — both are valid
     if (!hasEvents) {
-      await expect(page.getByText(/No sync events/i).or(page.getByText(/not connected/i))).toBeVisible();
+      await expect(
+        page
+          .getByText(/No sync events/i)
+          .or(page.getByText(/Connect a repository to see sync events/i)),
+      ).toBeVisible();
     }
   });
 
@@ -103,16 +107,16 @@ test.describe("GitHub Living Spec", () => {
     await page.goto(`/workspaces/${wsId}/products/${productId}/github`);
 
     // Look for a pending proposal
-    const viewAnalysisBtn = page.getByRole("button", { name: /View Analysis/i }).first();
-    const hasProposal = await viewAnalysisBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+    const detailsBtn = page.getByRole("button", { name: /Details/i }).first();
+    const hasProposal = await detailsBtn.isVisible({ timeout: 3_000 }).catch(() => false);
 
     if (!hasProposal) {
       test.skip(true, "No pending proposals available — skipping");
       return;
     }
 
-    await viewAnalysisBtn.click();
-    const acceptBtn = page.getByRole("button", { name: /Accept/i }).first();
+    await detailsBtn.click();
+    const acceptBtn = page.getByRole("button", { name: /Accept update/i }).first();
     await expect(acceptBtn).toBeVisible();
     await acceptBtn.click();
 
@@ -129,15 +133,15 @@ test.describe("GitHub Living Spec", () => {
   }) => {
     await page.goto(`/workspaces/${wsId}/products/${productId}/github`);
 
-    const viewAnalysisBtn = page.getByRole("button", { name: /View Analysis/i }).first();
-    const hasProposal = await viewAnalysisBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+    const detailsBtn = page.getByRole("button", { name: /Details/i }).first();
+    const hasProposal = await detailsBtn.isVisible({ timeout: 3_000 }).catch(() => false);
 
     if (!hasProposal) {
       test.skip(true, "No pending proposals available — skipping");
       return;
     }
 
-    await viewAnalysisBtn.click();
+    await detailsBtn.click();
     const dismissBtn = page.getByRole("button", { name: /Dismiss/i }).first();
     await expect(dismissBtn).toBeVisible();
     await dismissBtn.click();
