@@ -16,6 +16,7 @@ const {
   sendMessageMock,
   restoreBetSpecMock,
   completeBetSpecMock,
+  getLatestNextBetHypothesisMock,
 } = vi.hoisted(() => ({
   createBetSpecMock: vi.fn(),
   getBetSpecsMock: vi.fn(),
@@ -26,6 +27,7 @@ const {
   sendMessageMock: vi.fn(),
   restoreBetSpecMock: vi.fn(),
   completeBetSpecMock: vi.fn(),
+  getLatestNextBetHypothesisMock: vi.fn(),
 }));
 
 // Stub out spec-store to avoid DB connections in unit tests.
@@ -48,7 +50,9 @@ vi.mock("../services/spec-store.js", () => ({
   restoreBetSpec: restoreBetSpecMock.mockResolvedValue(null),
   completeBetSpec: completeBetSpecMock.mockResolvedValue({
     learningSummary: "Guest checkout mattered more than UI polish.",
+    nextBetHypothesis: "We believe reducing checkout steps will improve conversion for mobile users.",
   }),
+  getLatestNextBetHypothesis: getLatestNextBetHypothesisMock.mockResolvedValue(null),
 }));
 
 const BASE = "/api/v1/workspaces/ws1/products/p1";
@@ -165,6 +169,7 @@ describe("POST /bets/:betId/complete", () => {
     const body = (await res.json()) as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
     expect(body["learning_summary"]).toBeTruthy();
+    expect(body["next_bet_hypothesis"]).toBeTruthy();
     expect(completeBetSpecMock).toHaveBeenCalledWith(
       "ws1",
       "p1",
@@ -173,5 +178,34 @@ describe("POST /bets/:betId/complete", () => {
       "test_user",
       expect.any(String),
     );
+  });
+});
+
+describe("GET /bets/recommendation", () => {
+  it("returns null when no recommendation exists", async () => {
+    const app = buildApp();
+    getLatestNextBetHypothesisMock.mockResolvedValueOnce(null);
+    const res = await app.request(`${BASE}/bets/recommendation`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body["recommendation"]).toBeNull();
+    expect(getLatestNextBetHypothesisMock).toHaveBeenCalledWith("ws1", "p1");
+  });
+
+  it("returns latest recommendation when available", async () => {
+    const app = buildApp();
+    getLatestNextBetHypothesisMock.mockResolvedValueOnce({
+      betSpecId: "bet_completed_1",
+      title: "Improve checkout",
+      nextBetHypothesis: "We believe one-page checkout will improve conversion for mobile users.",
+      learningSummary: "Mobile users dropped during multi-step checkout.",
+      updatedAt: "2026-03-08T07:00:00.000Z",
+    });
+    const res = await app.request(`${BASE}/bets/recommendation`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    const recommendation = body["recommendation"] as Record<string, unknown>;
+    expect(recommendation["betSpecId"]).toBe("bet_completed_1");
+    expect(recommendation["nextBetHypothesis"]).toBeTruthy();
   });
 });

@@ -1,6 +1,7 @@
 // Spec Agent API routes (M2)
 // POST   /api/v1/workspaces/:workspaceId/products/:productId/bets
 // GET    /api/v1/workspaces/:workspaceId/products/:productId/bets
+// GET    /api/v1/workspaces/:workspaceId/products/:productId/bets/recommendation
 // GET    /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId
 // PATCH  /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId
 // POST   /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/messages
@@ -8,6 +9,7 @@
 // GET    /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/versions
 // POST   /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/restore
 // POST   /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/complete
+// GET    /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/readiness
 
 import { apiError, createApp } from "./middleware.js";
 import {
@@ -17,10 +19,12 @@ import {
   getBetSpecs,
   getBetSpecVersions,
   getConversation,
+  getLatestNextBetHypothesis,
   restoreBetSpec,
   sendMessage,
   updateBetSpecStatus,
 } from "../services/spec-store.js";
+import { checkBetReadiness } from "../services/readiness-checker.js";
 import { parsePaginationQuery } from "./pagination.js";
 
 const app = createApp();
@@ -95,6 +99,42 @@ app.get(`${BASE}/bets`, async (c) => {
     return c.json({ total: result.total, limit, offset, items: result.items });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to list bet specs.";
+    return apiError(c, 500, "fetch_error", message);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET .../bets/:betId/readiness — pre-release spec completeness checklist
+// ---------------------------------------------------------------------------
+app.get(`${BASE}/bets/:betId/readiness`, async (c) => {
+  const { workspaceId, productId, betId } = c.req.param();
+
+  try {
+    const report = await checkBetReadiness(workspaceId, productId, betId);
+    if (!report) {
+      return apiError(c, 404, "bet_spec_not_found", "Bet spec not found.", { workspaceId, betId });
+    }
+    return c.json(report);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to check readiness.";
+    return apiError(c, 500, "readiness_error", message);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET .../bets/recommendation — latest next-bet hypothesis from completed bets
+// ---------------------------------------------------------------------------
+app.get(`${BASE}/bets/recommendation`, async (c) => {
+  const { workspaceId, productId } = c.req.param();
+
+  try {
+    const result = await getLatestNextBetHypothesis(workspaceId, productId);
+    if (!result) {
+      return c.json({ recommendation: null });
+    }
+    return c.json({ recommendation: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to get recommendation.";
     return apiError(c, 500, "fetch_error", message);
   }
 });

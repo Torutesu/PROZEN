@@ -286,6 +286,7 @@ export interface BetSpecMeta {
 export interface CompleteBetResponse {
   ok: boolean;
   learning_summary: string;
+  next_bet_hypothesis?: string | null;
 }
 
 export interface BetSpecView {
@@ -532,7 +533,37 @@ export function betApi(
         body: JSON.stringify({ outcomeNote }),
         token,
       }),
+    getRecommendation: () =>
+      request<{ recommendation: NextBetRecommendation | null }>(`${base}/bets/recommendation`, { token }),
+    getReadiness: (betId: string) =>
+      request<ReadinessReport>(`${base}/bets/${betId}/readiness`, { token }),
   };
+}
+
+export interface NextBetRecommendation {
+  betSpecId: string;
+  title: string;
+  nextBetHypothesis: string;
+  learningSummary?: string | null;
+  updatedAt: string;
+}
+
+export type ReadinessCheckStatus = "pass" | "warn" | "fail";
+
+export interface ReadinessCheck {
+  id: string;
+  label: string;
+  status: ReadinessCheckStatus;
+  message: string;
+}
+
+export interface ReadinessReport {
+  betSpecId: string;
+  title: string;
+  score: number;
+  readyToShip: boolean;
+  checks: ReadinessCheck[];
+  generatedAt: string;
 }
 
 export interface DailyBriefingRecord {

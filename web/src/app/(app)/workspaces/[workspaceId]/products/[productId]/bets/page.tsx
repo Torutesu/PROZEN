@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, use } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { betApi, type BetSpecMeta, type BetSpecView, type ConversationMessage, type CompleteBetResponse } from "@/lib/api-client";
+import { betApi, type BetSpecMeta, type BetSpecView, type ConversationMessage, type CompleteBetResponse, type NextBetRecommendation, type ReadinessReport } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -40,6 +40,13 @@ export default function BetsPage({ params }: Props) {
   const [specTab, setSpecTab] = useState<"chat" | "spec">("chat");
   const [specData, setSpecData] = useState<BetSpecView | null>(null);
 
+  // Recommendation
+  const [recommendation, setRecommendation] = useState<NextBetRecommendation | null>(null);
+
+  // Readiness
+  const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
+  const [showReadiness, setShowReadiness] = useState(false);
+
   // Complete bet
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [outcomeNote, setOutcomeNote] = useState("");
@@ -50,6 +57,16 @@ export default function BetsPage({ params }: Props) {
     setShowCompleteModal(false);
     setOutcomeNote("");
     setCompletedLearning(null);
+  }
+
+  async function loadRecommendation() {
+    try {
+      const token = await getToken();
+      const res = await betApi(workspaceId, productId, token).getRecommendation();
+      setRecommendation(res.recommendation);
+    } catch {
+      // non-critical, ignore
+    }
   }
 
   async function loadBets() {
@@ -115,11 +132,14 @@ export default function BetsPage({ params }: Props) {
       setSpecData(null);
       setView("conversation");
 
-      // Load spec if available
+      // Load spec and readiness in parallel (non-blocking)
+      setReadiness(null);
+      setShowReadiness(false);
       const api = betApi(workspaceId, productId, token);
       api.get(betId).then((detail) => {
         if (detail.spec) setSpecData(detail.spec as BetSpecView);
       }).catch(() => { /* spec not available yet */ });
+      api.getReadiness(betId).then((r) => setReadiness(r)).catch(() => { /* readiness is best-effort */ });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load conversation.");
     }
@@ -152,7 +172,16 @@ export default function BetsPage({ params }: Props) {
       };
       setMessages((prev) => [...prev, agentMsg]);
       setAgentState(res.agent_state);
-      if (res.spec) setSpecData(res.spec as BetSpecView);
+      if (res.spec) {
+        setSpecData(res.spec as BetSpecView);
+        // Refresh readiness whenever the spec is updated
+        if (activeBetId) {
+          const token2 = await getToken();
+          betApi(workspaceId, productId, token2).getReadiness(activeBetId)
+            .then((r) => setReadiness(r))
+            .catch(() => { /* best-effort */ });
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send message.");
     } finally {
@@ -185,6 +214,7 @@ export default function BetsPage({ params }: Props) {
             : b,
         ),
       );
+      await loadRecommendation();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to complete bet.");
     } finally {
@@ -194,6 +224,7 @@ export default function BetsPage({ params }: Props) {
 
   useEffect(() => {
     void loadBets();
+    void loadRecommendation();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, productId]);
 
@@ -311,6 +342,21 @@ export default function BetsPage({ params }: Props) {
           >
             ← Back to bets
           </button>
+          {recommendation && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+              <p className="text-xs font-medium text-primary uppercase tracking-wider">AI Recommendation</p>
+              <p className="text-sm leading-relaxed">{recommendation.nextBetHypothesis}</p>
+              <p className="text-xs text-muted-foreground">Based on learnings from: {recommendation.title}</p>
+              <button
+                className="text-xs text-primary hover:underline font-medium"
+                onClick={() => {
+                  setNewMessage(recommendation.nextBetHypothesis);
+                }}
+              >
+                Use as starting point →
+              </button>
+            </div>
+          )}
           <div className="space-y-4">
             <div className="space-y-1">
               <label className="text-sm font-medium">
@@ -366,7 +412,23 @@ export default function BetsPage({ params }: Props) {
             <span className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">
               {agentState}
             </span>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              {readiness && bets.find((b) => b.id === activeBetId)?.status !== "completed" && (
+                <button
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-full font-medium transition-colors",
+                    readiness.readyToShip
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200"
+                      : readiness.score >= 50
+                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 hover:bg-yellow-200"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200",
+                  )}
+                  onClick={() => setShowReadiness((v) => !v)}
+                  title="View spec readiness checklist"
+                >
+                  {readiness.readyToShip ? "✓" : "!"} Readiness {readiness.score}%
+                </button>
+              )}
               {bets.find((b) => b.id === activeBetId)?.status !== "completed" && (
                 <Button
                   size="sm"
@@ -379,6 +441,53 @@ export default function BetsPage({ params }: Props) {
               )}
             </div>
           </div>
+
+          {/* Readiness checklist panel */}
+          {showReadiness && readiness && (
+            <div className="mb-4 rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Spec Readiness — {readiness.score}%</h3>
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowReadiness(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="w-full bg-muted rounded-full h-1.5">
+                <div
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    readiness.score >= 70 ? "bg-green-500" : readiness.score >= 40 ? "bg-yellow-500" : "bg-destructive",
+                  )}
+                  style={{ width: `${readiness.score}%` }}
+                />
+              </div>
+              <div className="space-y-2">
+                {readiness.checks.map((check) => (
+                  <div key={check.id} className="flex items-start gap-2 text-xs">
+                    <span className={cn(
+                      "mt-0.5 shrink-0 font-bold",
+                      check.status === "pass" ? "text-green-600 dark:text-green-400" :
+                      check.status === "warn" ? "text-yellow-600 dark:text-yellow-400" :
+                      "text-destructive",
+                    )}>
+                      {check.status === "pass" ? "✓" : check.status === "warn" ? "⚠" : "✗"}
+                    </span>
+                    <div>
+                      <span className="font-medium">{check.label}</span>
+                      <span className="text-muted-foreground ml-1">— {check.message}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {!readiness.readyToShip && (
+                <p className="text-xs text-muted-foreground pt-1 border-t border-border">
+                  Keep refining the spec with the agent to unlock all checks before shipping.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Learning display after completion */}
           {completedLearning && (

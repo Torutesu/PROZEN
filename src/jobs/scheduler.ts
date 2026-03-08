@@ -14,6 +14,7 @@ import { getDb } from "../db/client.js";
 import { products, workspaces } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { getDailyBriefing } from "../services/briefing-store.js";
+import { getEveningReview, getWeeklyRetro } from "../services/review-store.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,16 +60,29 @@ async function runMorningBriefings(): Promise<void> {
   log("Running morning briefing job...");
   let succeeded = 0;
   let failed = 0;
+  const maxAttempts = 3;
   try {
     const pairs = await getActiveProductPairs();
     for (const { workspaceId, productId } of pairs) {
-      try {
-        await getDailyBriefing(workspaceId, productId);
-        succeeded++;
-      } catch (err) {
+      let lastError: string | null = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          await getDailyBriefing(workspaceId, productId);
+          succeeded++;
+          lastError = null;
+          break;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
+          if (attempt < maxAttempts) {
+            log(
+              `  briefing failed for product ${productId} (attempt ${attempt}/${maxAttempts}); retrying...`,
+            );
+          }
+        }
+      }
+      if (lastError) {
         failed++;
-        const msg = err instanceof Error ? err.message : String(err);
-        log(`  briefing failed for product ${productId}: ${msg}`);
+        log(`  briefing failed for product ${productId}: ${lastError}`);
       }
     }
     log(`Morning briefings: ${succeeded} succeeded, ${failed} failed (${pairs.length} total).`);
@@ -79,15 +93,71 @@ async function runMorningBriefings(): Promise<void> {
 }
 
 async function runEveningReview(): Promise<void> {
-  // Evening review is currently a no-op placeholder.
-  // In a future milestone this will generate an evening decision log recap.
-  log("Evening review job triggered (placeholder — no action taken).");
+  log("Running evening review job...");
+  let succeeded = 0;
+  let failed = 0;
+  const maxAttempts = 3;
+  try {
+    const pairs = await getActiveProductPairs();
+    for (const { workspaceId, productId } of pairs) {
+      let lastError: string | null = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          await getEveningReview(workspaceId, productId);
+          succeeded++;
+          lastError = null;
+          break;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
+          if (attempt < maxAttempts) {
+            log(`  evening review failed for product ${productId} (attempt ${attempt}/${maxAttempts}); retrying...`);
+          }
+        }
+      }
+      if (lastError) {
+        failed++;
+        log(`  evening review failed for product ${productId}: ${lastError}`);
+      }
+    }
+    log(`Evening reviews: ${succeeded} succeeded, ${failed} failed (${pairs.length} total).`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`Evening review job error: ${msg}`);
+  }
 }
 
 async function runWeeklyRetro(): Promise<void> {
-  // Weekly retrospective is a placeholder.
-  // In a future milestone this will generate bet accuracy retrospectives.
-  log("Weekly retro job triggered (placeholder — no action taken).");
+  log("Running weekly retro job...");
+  let succeeded = 0;
+  let failed = 0;
+  const maxAttempts = 3;
+  try {
+    const pairs = await getActiveProductPairs();
+    for (const { workspaceId, productId } of pairs) {
+      let lastError: string | null = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          await getWeeklyRetro(workspaceId, productId);
+          succeeded++;
+          lastError = null;
+          break;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
+          if (attempt < maxAttempts) {
+            log(`  weekly retro failed for product ${productId} (attempt ${attempt}/${maxAttempts}); retrying...`);
+          }
+        }
+      }
+      if (lastError) {
+        failed++;
+        log(`  weekly retro failed for product ${productId}: ${lastError}`);
+      }
+    }
+    log(`Weekly retros: ${succeeded} succeeded, ${failed} failed (${pairs.length} total).`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`Weekly retro job error: ${msg}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +174,18 @@ function hourKey(label: string): string {
   return `${label}:${dateHour}`;
 }
 
+function pruneFiredHours(): void {
+  const keepDatePrefix = new Date().toISOString().slice(0, 10);
+  for (const key of firedHours) {
+    // key format: "<label>:YYYY-MM-DDTHH"
+    if (!key.includes(`:${keepDatePrefix}T`)) {
+      firedHours.delete(key);
+    }
+  }
+}
+
 function tick(): void {
+  pruneFiredHours();
   const hour = nowUtcHour();
   const minute = nowUtcMinute();
 

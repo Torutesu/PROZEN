@@ -2,7 +2,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, max } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, max } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import {
   auditEvents,
@@ -805,6 +805,57 @@ export async function restoreBetSpec(
 }
 
 // ---------------------------------------------------------------------------
+// Get latest next-bet hypothesis from recently completed bets
+// ---------------------------------------------------------------------------
+
+export interface NextBetRecommendation {
+  betSpecId: string;
+  title: string;
+  nextBetHypothesis: string;
+  learningSummary: string | null;
+  updatedAt: string;
+}
+
+export async function getLatestNextBetHypothesis(
+  workspaceId: string,
+  productId: string,
+): Promise<NextBetRecommendation | null> {
+  const db = getDb();
+
+  const row = (
+    await db
+      .select({
+        id: betSpecs.id,
+        title: betSpecs.title,
+        nextBetHypothesis: betSpecs.nextBetHypothesis,
+        learningSummary: betSpecs.learningSummary,
+        updatedAt: betSpecs.updatedAt,
+      })
+      .from(betSpecs)
+      .where(
+        and(
+          eq(betSpecs.workspaceId, workspaceId),
+          eq(betSpecs.productId, productId),
+          eq(betSpecs.status, "completed"),
+          isNotNull(betSpecs.nextBetHypothesis),
+        ),
+      )
+      .orderBy(desc(betSpecs.updatedAt))
+      .limit(1)
+  )[0];
+
+  if (!row?.nextBetHypothesis) return null;
+
+  return {
+    betSpecId: row.id,
+    title: row.title,
+    nextBetHypothesis: row.nextBetHypothesis,
+    learningSummary: row.learningSummary,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Complete a bet — record outcome + generate AI learning summary
 // ---------------------------------------------------------------------------
 
@@ -927,7 +978,6 @@ Respond with only valid JSON — no markdown, no explanation.`,
   });
 
   // Write learning back to Context Pack asynchronously (fire-and-forget).
-  // We use the system actor to avoid attribution confusion.
   if (learningSummary && learningSummary !== "Learning recorded. See outcome note for details.") {
     const contextUpdate = [
       `[Learning from bet: ${bet.title}]`,
@@ -943,8 +993,21 @@ Respond with only valid JSON — no markdown, no explanation.`,
       rawInput: contextUpdate,
       tags: ["bet_completion", betSpecId],
       createdBy: actorId,
-    }).catch(() => {
+    }).catch((err) => {
       // Context Pack update is best-effort; never fail the completion response.
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `[spec-store] failed to ingest learning context for bet ${betSpecId}: ${message}\n`,
+      );
+      void emitAuditEvent({
+        workspaceId,
+        actorId,
+        eventType: "bet_spec.learning_context_ingest_failed",
+        resourceType: "bet_spec",
+        resourceId: betSpecId,
+        requestId,
+        metadata: { error: message },
+      });
     });
   }
 

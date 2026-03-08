@@ -23,7 +23,7 @@
 
 <br/>
 
-[![Pitch Deck](https://img.shields.io/badge/Pitch%20Deck-View%20Slides-1738BD?style=for-the-badge&logo=googledrive&logoColor=white)](https://example.com/prozen-pitch-deck)
+[![Pitch Deck](https://img.shields.io/badge/Pitch%20Deck-View%20Slides-1738BD?style=for-the-badge&logo=googledrive&logoColor=white)](https://docs.google.com/presentation/d/1Z_UilPtnN-gm0xhZibs35uy4m4zP6GWI/edit?usp=sharing&ouid=103583922291632124324&rtpof=true&sd=true)
 &nbsp;
 [![Demo Video](https://img.shields.io/badge/Demo%20Video-Watch%20Now-EF4444?style=for-the-badge&logo=youtube&logoColor=white)](https://example.com/prozen-demo)
 
@@ -350,7 +350,7 @@ pnpm run validate:context-pack
 
 <br/>
 
-[![ピッチデック](https://img.shields.io/badge/ピッチデック-スライドを見る-1738BD?style=for-the-badge&logo=googledrive&logoColor=white)](https://example.com/prozen-pitch-deck)
+[![ピッチデック](https://img.shields.io/badge/ピッチデック-スライドを見る-1738BD?style=for-the-badge&logo=googledrive&logoColor=white)](https://docs.google.com/presentation/d/1Z_UilPtnN-gm0xhZibs35uy4m4zP6GWI/edit?usp=sharing&ouid=103583922291632124324&rtpof=true&sd=true)
 &nbsp;
 [![デモ動画](https://img.shields.io/badge/デモ動画-今すぐ見る-EF4444?style=for-the-badge&logo=youtube&logoColor=white)](https://example.com/prozen-demo)
 

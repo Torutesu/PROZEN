@@ -331,6 +331,27 @@ export const githubSyncEvents = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// M14 — Product Reviews (0013_m14_product_reviews.sql)
+// ---------------------------------------------------------------------------
+
+export const productReviews = pgTable(
+  "product_reviews",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: text("product_id").notNull(),
+    reviewType: text("review_type").notNull(), // 'evening_review' | 'weekly_retro'
+    reviewDate: date("review_date").notNull(),
+    content: text("content").notNull(),
+    metadata: jsonb("metadata").notNull().default({}),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.productId, t.reviewType, t.reviewDate)],
+);
+
+// ---------------------------------------------------------------------------
 // M10 — Daily Briefing (0009_m10_daily_briefing.sql)
 // ---------------------------------------------------------------------------
 

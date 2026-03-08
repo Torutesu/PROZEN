@@ -11,6 +11,7 @@ const {
   addReadingMock,
   getReadingsMock,
   getAnomaliesMock,
+  getAffectedBetsMock,
   resolveAnomalyMock,
 } = vi.hoisted(() => ({
   createMetricMock: vi.fn(),
@@ -20,6 +21,7 @@ const {
   addReadingMock: vi.fn(),
   getReadingsMock: vi.fn(),
   getAnomaliesMock: vi.fn(),
+  getAffectedBetsMock: vi.fn(),
   resolveAnomalyMock: vi.fn(),
 }));
 
@@ -47,6 +49,7 @@ vi.mock("../services/metric-store.js", () => ({
   addReading: addReadingMock.mockResolvedValue(null),
   getReadings: getReadingsMock.mockResolvedValue({ total: 0, items: [] }),
   getAnomalies: getAnomaliesMock.mockResolvedValue({ total: 0, items: [] }),
+  getAffectedBets: getAffectedBetsMock.mockResolvedValue(null),
   resolveAnomaly: resolveAnomalyMock.mockResolvedValue(false),
 }));
 
@@ -182,5 +185,37 @@ describe("GET /anomalies", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body["total"]).toBe(0);
+  });
+});
+
+describe("GET /anomalies/:anomalyId/affected-bets", () => {
+  it("returns 404 when anomaly is not found", async () => {
+    const app = buildApp();
+    getAffectedBetsMock.mockResolvedValueOnce(null);
+    const res = await app.request(`${BASE}/anomalies/anom_unknown/affected-bets`);
+    expect(res.status).toBe(404);
+    expect(getAffectedBetsMock).toHaveBeenCalledWith("ws1", "p1", "anom_unknown");
+  });
+
+  it("returns affected bets payload", async () => {
+    const app = buildApp();
+    getAffectedBetsMock.mockResolvedValueOnce({
+      anomalyId: "anom_1",
+      metricId: "met_1",
+      metricName: "Activation Rate",
+      affectedBets: [
+        {
+          betId: "bet_1",
+          title: "Improve onboarding",
+          status: "active",
+          linkageReason: "Metric is directly linked to this bet.",
+        },
+      ],
+    });
+    const res = await app.request(`${BASE}/anomalies/anom_1/affected-bets`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body["metricId"]).toBe("met_1");
+    expect(Array.isArray(body["affectedBets"])).toBe(true);
   });
 });
