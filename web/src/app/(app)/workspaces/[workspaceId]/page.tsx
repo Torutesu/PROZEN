@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { AppShell } from "@/components/layout/app-shell";
@@ -120,13 +121,13 @@ export default function WorkspacePage({ params }: Props) {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {NAV_ITEMS(workspaceId, p.id).map((item) => (
-                        <button
+                        <Link
                           key={item.href}
+                          href={item.href}
                           className="text-xs border border-border rounded-md px-3 py-1 hover:bg-accent/10 transition-colors"
-                          onClick={() => router.push(item.href)}
                         >
                           {item.label}
-                        </button>
+                        </Link>
                       ))}
                     </div>
                   </div>

@@ -208,7 +208,9 @@ export default function BetsPage({ params }: Props) {
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight mb-6">
-        {view === "conversation" ? "Spec Conversation" : "Bets"}
+        {view === "conversation"
+          ? (bets.find((b) => b.id === activeBetId)?.title ?? "Spec Conversation")
+          : "Bets"}
       </h1>
       {error && (
         <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
