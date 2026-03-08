@@ -448,6 +448,9 @@ export interface GitHubSyncEvent {
     confidence: "low" | "medium" | "high";
   } | null;
   status: string;
+  retry_count: number;
+  next_attempt_at: string | null;
+  last_error: string | null;
   created_at: string;
   processed_at: string | null;
 }

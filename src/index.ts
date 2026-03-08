@@ -16,6 +16,7 @@ import metricRoutes from "./api/metric-routes.js";
 import githubRoutes from "./api/github-routes.js";
 import workspaceRoutes from "./api/workspace-routes.js";
 import briefingRoutes from "./api/briefing-routes.js";
+import { startGitHubSyncQueueWorker } from "./services/github-sync-queue.js";
 
 const host = "127.0.0.1";
 const port = Number(process.env["PORT"] ?? 8787);
@@ -83,6 +84,10 @@ app.notFound((c) =>
 );
 
 serve({ fetch: app.fetch, hostname: host, port }, () => {
+  const stopWorker = startGitHubSyncQueueWorker();
+  process.on("SIGTERM", stopWorker);
+  process.on("SIGINT", stopWorker);
+
   process.stdout.write(`PROZEN API started on http://${host}:${port}\n`);
   process.stdout.write(`  GET  /healthz\n`);
   process.stdout.write(`  GET  /schema/bet-spec\n`);

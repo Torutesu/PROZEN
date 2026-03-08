@@ -7,23 +7,17 @@
 
 import { eq, and, count, desc } from "drizzle-orm";
 import { getDb } from "../db/client.js";
-import { githubConnections, githubSyncEvents, betSpecVersions } from "../db/schema.js";
+import { githubConnections, githubSyncEvents } from "../db/schema.js";
 import { apiError, createApp } from "./middleware.js";
 import {
   verifyWebhookSignature,
-  fetchCommitDiff,
-  fetchPRDiff,
-  analyzeDiffAgainstBetSpecs,
   registerGitHubWebhook,
   deleteGitHubWebhook,
-  type GitHubPushPayload,
-  type GitHubPRPayload,
-  type BetSpecSummary,
 } from "../services/github-sync.js";
-import { getBetSpecs } from "../services/spec-store.js";
 import { getProductById, getWorkspaceById } from "../services/workspace-store.js";
 import { randomUUID } from "node:crypto";
 import { decryptSecret, encryptSecret } from "../services/secret-crypto.js";
+import { drainGitHubSyncQueue } from "../services/github-sync-queue.js";
 
 const app = createApp();
 const BASE = "/api/v1/workspaces/:workspaceId/products/:productId";
@@ -111,6 +105,15 @@ app.post("/api/v1/github/webhook", async (c) => {
   }
 
   const eventId = `gse_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
+  const pushPayload = payload as Record<string, unknown>;
+  const ref = typeof pushPayload["ref"] === "string" ? pushPayload["ref"] : null;
+  const commitSha = typeof pushPayload["after"] === "string" ? pushPayload["after"] : null;
+  const prNumber = Number.isInteger(pushPayload["number"]) ? Number(pushPayload["number"]) : null;
+  const prTitle = typeof (pushPayload["pull_request"] as Record<string, unknown> | undefined)?.["title"] === "string"
+    ? String((pushPayload["pull_request"] as Record<string, unknown>)["title"])
+    : null;
+  const shouldQueue = eventType === "push" || eventType === "pull_request";
+
   const inserted = await db
     .insert(githubSyncEvents)
     .values({
@@ -120,7 +123,14 @@ app.post("/api/v1/github/webhook", async (c) => {
       eventType,
       githubDeliveryId: deliveryId,
       repository: repo,
-      status: "pending",
+      ref,
+      commitSha,
+      prNumber,
+      prTitle,
+      payload,
+      status: shouldQueue ? "pending" : "skipped",
+      nextAttemptAt: shouldQueue ? new Date() : null,
+      processedAt: shouldQueue ? null : new Date(),
       createdAt: new Date(),
     })
     .onConflictDoNothing({
@@ -133,148 +143,10 @@ app.post("/api/v1/github/webhook", async (c) => {
     return c.json({ received: true, duplicate: true }, 200);
   }
 
-  // Process async — respond 200 immediately, process in background
-  const processEvent = async () => {
-    try {
-      await db
-        .update(githubSyncEvents)
-        .set({ status: "processing" })
-        .where(eq(githubSyncEvents.id, eventId));
-
-      let diffText = "";
-      let analysis = null;
-      let ref: string | undefined;
-      let commitSha: string | undefined;
-      let prNumber: number | undefined;
-      let prTitle: string | undefined;
-      let eventDescription = "";
-
-      const resolvedAccessToken = decryptSecret(connection.accessToken);
-
-      if (eventType === "push") {
-        const pushPayload = payload as GitHubPushPayload;
-        ref = pushPayload.ref;
-        commitSha = pushPayload.after;
-        const shortSha = typeof pushPayload.after === "string"
-          ? pushPayload.after.slice(0, 7)
-          : "unknown";
-        eventDescription = `Push to ${pushPayload.ref} (commit: ${shortSha})`;
-
-        try {
-          diffText = await fetchCommitDiff(repo, pushPayload.after, resolvedAccessToken);
-        } catch {
-          diffText = "";
-        }
-      } else if (eventType === "pull_request") {
-        const prPayload = payload as GitHubPRPayload;
-        if (!["opened", "synchronize", "reopened"].includes(prPayload.action)) {
-          await db
-            .update(githubSyncEvents)
-            .set({
-              status: "skipped",
-              processedAt: new Date(),
-            })
-            .where(eq(githubSyncEvents.id, eventId));
-          return;
-        }
-        prNumber = prPayload.number;
-        prTitle = prPayload.pull_request.title;
-        commitSha = prPayload.pull_request.head.sha;
-        eventDescription = `PR #${prPayload.number}: ${prPayload.pull_request.title}`;
-
-        try {
-          diffText = await fetchPRDiff(
-            prPayload.pull_request.diff_url,
-            resolvedAccessToken,
-          );
-        } catch {
-          diffText = "";
-        }
-      } else {
-        // Unsupported event type — mark skipped.
-        await db
-          .update(githubSyncEvents)
-          .set({
-            status: "skipped",
-            processedAt: new Date(),
-          })
-          .where(eq(githubSyncEvents.id, eventId));
-        return;
-      }
-
-      // Fetch active bet specs for this workspace+product
-      const betSpecsResult = await getBetSpecs(
-        connection.workspaceId,
-        connection.productId,
-        100,
-        0,
-      );
-
-      // For each bet spec, fetch the latest version to get structured spec data
-      const specsWithData: BetSpecSummary[] = [];
-      for (const bet of betSpecsResult.items) {
-        if (bet.status !== "active" && bet.status !== "validating") continue;
-        if (!bet.currentVersionId) continue;
-
-        const versionRow = (
-          await db
-            .select()
-            .from(betSpecVersions)
-            .where(eq(betSpecVersions.id, bet.currentVersionId))
-            .limit(1)
-        )[0];
-
-        if (!versionRow) continue;
-
-        const structured = versionRow.structuredPayload as Record<string, unknown> | null;
-        specsWithData.push({
-          id: bet.id,
-          title: bet.title,
-          hypothesis: (structured?.["hypothesis"] as string | undefined) ?? bet.title,
-          acceptanceCriteria: Array.isArray(structured?.["acceptanceCriteria"])
-            ? (structured["acceptanceCriteria"] as Array<{ id: string; statement: string }>)
-            : [],
-          scope: structured?.["scope"] as
-            | { inScope: string[]; outOfScope: string[] }
-            | undefined,
-        });
-      }
-
-      // Analyze diff against active bet specs
-      if (diffText) {
-        try {
-          analysis = await analyzeDiffAgainstBetSpecs(diffText, specsWithData, eventDescription);
-        } catch {
-          analysis = null;
-        }
-      }
-
-      await db
-        .update(githubSyncEvents)
-        .set({
-          ref,
-          commitSha,
-          prNumber,
-          prTitle,
-          diffSummary: diffText.slice(0, 500) || null,
-          analysis,
-          status: "analyzed",
-          processedAt: new Date(),
-        })
-        .where(eq(githubSyncEvents.id, eventId));
-    } catch {
-      await db
-        .update(githubSyncEvents)
-        .set({
-          status: "failed",
-          processedAt: new Date(),
-        })
-        .where(eq(githubSyncEvents.id, eventId));
-    }
-  };
-
-  // Fire-and-forget
-  void processEvent();
+  if (shouldQueue) {
+    // Kick queue worker immediately (durable queue remains in DB for retries/restarts).
+    void drainGitHubSyncQueue();
+  }
 
   return c.json({ received: true, event_id: eventId }, 200);
 });
@@ -599,6 +471,9 @@ app.get(`${BASE}/github-sync-events`, async (c) => {
       diff_summary: r.diffSummary,
       analysis: r.analysis,
       status: r.status,
+      retry_count: r.retryCount,
+      next_attempt_at: r.nextAttemptAt,
+      last_error: r.lastError,
       created_at: r.createdAt,
       processed_at: r.processedAt,
     })),
