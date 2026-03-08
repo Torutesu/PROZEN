@@ -17,6 +17,7 @@ const NAV_ITEMS = (wId: string, pId: string) => [
   { label: "Metrics", href: `/workspaces/${wId}/products/${pId}/metrics` },
   { label: "Decision Log", href: `/workspaces/${wId}/products/${pId}/decision-logs` },
   { label: "GitHub", href: `/workspaces/${wId}/products/${pId}/github` },
+  { label: "Settings", href: `/workspaces/${wId}/products/${pId}/settings` },
 ];
 
 export default function WorkspacePage({ params }: Props) {

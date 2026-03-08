@@ -136,12 +136,6 @@ serve({ fetch: app.fetch, hostname: host, port }, () => {
     `  GET  /api/v1/workspaces/:wid/products/:pid/metrics/anomalies\n`,
   );
   process.stdout.write(
-    `  GET  /api/v1/workspaces/:wid/products/:pid/metrics/reconciliation\n`,
-  );
-  process.stdout.write(
-    `  GET  /api/v1/workspaces/:wid/products/:pid/metrics/next-actions\n`,
-  );
-  process.stdout.write(
     `  GET  /api/v1/workspaces/:wid/audit-events?productId=&limit=&offset=\n`,
   );
   process.stdout.write(`  GET  /api/v1/workspaces\n`);

@@ -220,7 +220,11 @@ export default function BetsPage({ params }: Props) {
       {view === "list" && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{total} bets</p>
+            <p className="text-sm text-muted-foreground">
+              {statusFilter === "all"
+                ? `${total} bets`
+                : `${bets.filter((b) => b.status === statusFilter).length} ${statusFilter} bets`}
+            </p>
             <Button size="sm" onClick={() => setView("new")}>
               + New Bet
             </Button>

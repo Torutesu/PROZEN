@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next lint --dir src)",
+      "Bash(npx eslint src --ext .ts,.tsx --max-warnings 0)",
+      "Bash(npx eslint src --ext .ts,.tsx)"
+    ]
+  }
+}
