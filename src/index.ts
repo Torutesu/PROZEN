@@ -1,5 +1,4 @@
 // PROZEN API server — Hono on @hono/node-server
-// Replaces the legacy raw-http router. The server/ directory is kept for reference.
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -12,6 +11,9 @@ import {
 import auditRoutes from "./api/audit-routes.js";
 import contextPackRoutes from "./api/context-pack-routes.js";
 import decisionLogRoutes from "./api/decision-log-routes.js";
+import specRoutes from "./api/spec-routes.js";
+import metricRoutes from "./api/metric-routes.js";
+import githubRoutes from "./api/github-routes.js";
 
 const host = "127.0.0.1";
 const port = Number(process.env["PORT"] ?? 8787);
@@ -49,6 +51,15 @@ app.get("/schema/:name", async (c) => {
 app.route("/", contextPackRoutes);
 app.route("/", decisionLogRoutes);
 app.route("/", auditRoutes);
+
+// M2 API routes
+app.route("/", specRoutes);
+
+// M3 API routes
+app.route("/", metricRoutes);
+
+// M4 API routes
+app.route("/", githubRoutes);
 
 // Fallback
 app.notFound((c) =>
@@ -89,6 +100,52 @@ serve({ fetch: app.fetch, hostname: host, port }, () => {
     `  GET  /api/v1/workspaces/:wid/products/:pid/decision-logs/:id\n`,
   );
   process.stdout.write(
+    `  POST /api/v1/workspaces/:wid/products/:pid/bets\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/bets\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/bets/:betId\n`,
+  );
+  process.stdout.write(
+    `  POST /api/v1/workspaces/:wid/products/:pid/bets/:betId/messages\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/bets/:betId/conversation\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/bets/:betId/versions\n`,
+  );
+  process.stdout.write(
+    `  POST /api/v1/workspaces/:wid/products/:pid/bets/:betId/restore\n`,
+  );
+  process.stdout.write(
+    `  POST /api/v1/workspaces/:wid/products/:pid/metrics/ingest\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/metrics/anomalies\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/metrics/reconciliation\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/metrics/next-actions\n`,
+  );
+  process.stdout.write(
     `  GET  /api/v1/workspaces/:wid/audit-events?productId=&limit=&offset=\n`,
+  );
+  process.stdout.write(`  POST /api/v1/github/webhook\n`);
+  process.stdout.write(
+    `  POST /api/v1/workspaces/:wid/products/:pid/github-connections\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/github-connections\n`,
+  );
+  process.stdout.write(
+    `  DELETE /api/v1/workspaces/:wid/products/:pid/github-connections\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/github-sync-events\n`,
   );
 });
