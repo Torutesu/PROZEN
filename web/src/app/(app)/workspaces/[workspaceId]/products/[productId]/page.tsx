@@ -5,10 +5,12 @@ import { useEffect, useState, use } from "react";
 import { useAuth } from "@clerk/nextjs";
 import {
   betApi,
+  briefingApi,
   decisionLogApi,
   metricApi,
   type AnomalyRecord,
   type BetSpecMeta,
+  type DailyBriefingRecord,
   type DecisionLog,
 } from "@/lib/api-client";
 
@@ -23,6 +25,8 @@ export default function ProductOverviewPage({ params }: Props) {
   const [bets, setBets] = useState<BetSpecMeta[]>([]);
   const [anomalies, setAnomalies] = useState<AnomalyRecord[]>([]);
   const [decisions, setDecisions] = useState<DecisionLog[]>([]);
+  const [briefing, setBriefing] = useState<DailyBriefingRecord | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const base = `/workspaces/${workspaceId}/products/${productId}`;
@@ -42,6 +46,15 @@ export default function ProductOverviewPage({ params }: Props) {
       } finally {
         setLoading(false);
       }
+
+      // Load briefing separately (may take longer due to Claude call)
+      try {
+        const token = await getToken();
+        const b = await briefingApi(workspaceId, productId, token).getToday();
+        setBriefing(b);
+      } catch { /* briefing is best-effort */ } finally {
+        setBriefingLoading(false);
+      }
     }
     void load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,8 +63,33 @@ export default function ProductOverviewPage({ params }: Props) {
   const activeBets = bets.filter((b) => b.status === "active" || b.status === "draft");
   const completedBets = bets.filter((b) => b.status === "completed");
 
+  // Format today's date
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
     <div className="space-y-8">
+      {/* Today's Focus — Daily Briefing */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="size-1.5 rounded-full bg-primary animate-pulse" />
+          <p className="text-xs font-medium text-primary uppercase tracking-widest">Today's Focus</p>
+          <span className="text-xs text-muted-foreground ml-auto">{today}</span>
+        </div>
+        {briefingLoading ? (
+          <p className="text-sm text-muted-foreground">Generating your daily briefing…</p>
+        ) : briefing ? (
+          <p className="text-sm leading-relaxed">{briefing.content}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Add your first bet and some metrics to unlock daily AI briefings.
+          </p>
+        )}
+      </div>
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -113,9 +151,9 @@ export default function ProductOverviewPage({ params }: Props) {
           </h2>
           <div className="space-y-3">
             {completedBets.slice(0, 3).map((bet) => (
-              <div key={bet.id} className="rounded-xl border border-border bg-card p-4 space-y-1.5">
+              <div key={bet.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium">
+                  <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full font-medium">
                     completed
                   </span>
                   <p className="text-sm font-medium">{bet.title}</p>
@@ -186,7 +224,7 @@ function BetRow({ bet, base }: { bet: BetSpecMeta; base: string }) {
   return (
     <Link
       href={`${base}/bets`}
-      className="block rounded-lg px-2 py-1.5 -mx-2 hover:bg-muted transition-colors"
+      className="block rounded-lg px-2 py-2 -mx-2 hover:bg-muted transition-colors"
     >
       <p className="text-sm truncate">{bet.title}</p>
       <p className="text-xs text-muted-foreground capitalize">{bet.status}</p>
@@ -204,7 +242,7 @@ function AnomalyRow({ anomaly }: { anomaly: AnomalyRecord }) {
         : "bg-yellow-500";
   return (
     <div className="flex items-start gap-2 py-1">
-      <span className={`mt-1.5 size-1.5 rounded-full shrink-0 ${dotColor}`} />
+      <span className={`mt-2 size-2 rounded-full shrink-0 ${dotColor}`} />
       <div className="min-w-0">
         <p className="text-sm truncate">{anomaly.metricName ?? anomaly.metricId}</p>
         <p className="text-xs text-muted-foreground">

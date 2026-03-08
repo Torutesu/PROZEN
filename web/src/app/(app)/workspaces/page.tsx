@@ -81,7 +81,7 @@ export default function WorkspacesPage() {
                     onClick={() => router.push(`/workspaces/${ws.id}`)}
                   >
                     <p className="font-semibold">{ws.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Created {new Date(ws.createdAt).toLocaleDateString()}
                     </p>
                   </button>

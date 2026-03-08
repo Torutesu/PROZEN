@@ -96,10 +96,10 @@ function BetLoopDemo() {
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/40">
-        <div className="flex gap-1.5">
-          <div className="size-2.5 rounded-full bg-border" />
-          <div className="size-2.5 rounded-full bg-border" />
-          <div className="size-2.5 rounded-full bg-border" />
+        <div className="flex gap-2">
+          <div className="size-2 rounded-full bg-border" />
+          <div className="size-2 rounded-full bg-border" />
+          <div className="size-2 rounded-full bg-border" />
         </div>
         <span className="text-xs text-muted-foreground mx-auto font-medium">
           PROZEN · Bet Loop
@@ -120,7 +120,7 @@ function BetLoopDemo() {
           >
             <div
               className={cn(
-                "mt-0.5 size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300",
+                "mt-1 size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300",
                 i < phase
                   ? "bg-primary border-primary"
                   : i === phase
@@ -140,7 +140,7 @@ function BetLoopDemo() {
                 </svg>
               )}
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {s.label}
               </p>
@@ -228,7 +228,7 @@ function StepProduct({
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <label className="text-sm font-medium">
             Product name <span className="text-destructive">*</span>
           </label>
@@ -241,7 +241,7 @@ function StepProduct({
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <label className="text-sm font-medium">One-liner</label>
           <textarea
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm min-h-[72px] focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground resize-none"
@@ -251,7 +251,7 @@ function StepProduct({
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <label className="text-sm font-medium">Main KPI right now</label>
           <select
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -314,7 +314,7 @@ function StepFirstBet({
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {productName} · Bet Draft
             </span>
-            <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+            <span className="ml-auto text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">
               draft
             </span>
           </div>
@@ -341,11 +341,11 @@ function StepFirstBet({
             </div>
 
             <div>
-              <p className="text-xs text-muted-foreground mb-1.5">Acceptance criteria</p>
+              <p className="text-xs text-muted-foreground mb-2">Acceptance criteria</p>
               <ul className="space-y-1">
                 {betPreview.acceptance.map((a, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
-                    <span className="text-primary mt-0.5 shrink-0">✓</span>
+                    <span className="text-primary mt-1 shrink-0">✓</span>
                     <span>{a}</span>
                   </li>
                 ))}
@@ -353,11 +353,11 @@ function StepFirstBet({
             </div>
 
             <div>
-              <p className="text-xs text-muted-foreground mb-1.5">Risks</p>
+              <p className="text-xs text-muted-foreground mb-2">Risks</p>
               <ul className="space-y-1">
                 {betPreview.risks.map((r, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
-                    <span className="text-muted-foreground mt-0.5 shrink-0">⚠</span>
+                    <span className="text-muted-foreground mt-1 shrink-0">⚠</span>
                     <span className="text-muted-foreground">{r}</span>
                   </li>
                 ))}
@@ -384,7 +384,7 @@ function StepFirstBet({
         </p>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <label className="text-sm font-medium">
           Your hypothesis <span className="text-destructive">*</span>
         </label>
@@ -478,7 +478,7 @@ function StepDone({
       {warnings.length > 0 && (
         <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400 text-left space-y-1">
           <p className="font-medium">Setup completed with warnings.</p>
-          <ul className="list-disc pl-5 space-y-0.5">
+          <ul className="list-disc pl-5 space-y-1">
             {warnings.map((w) => (
               <li key={w}>{w}</li>
             ))}
@@ -490,7 +490,7 @@ function StepDone({
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           We&apos;ll set up
         </p>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {[
             "Your workspace",
             `Product: ${productName || "—"}`,

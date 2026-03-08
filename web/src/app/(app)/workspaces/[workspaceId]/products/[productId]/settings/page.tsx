@@ -115,7 +115,7 @@ export default function SettingsPage({ params }: Props) {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium">Archive this product</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-1">
                   Hides the product from the workspace. All data is preserved.
                 </p>
               </div>

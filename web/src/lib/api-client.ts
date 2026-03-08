@@ -288,6 +288,20 @@ export interface CompleteBetResponse {
   learning_summary: string;
 }
 
+export interface BetSpecView {
+  id: string;
+  title: string;
+  status: string;
+  hypothesis?: string;
+  problemStatement?: string;
+  userSegment?: string;
+  constraints?: string[];
+  acceptanceCriteria?: Array<{ criterion: string; metric?: string; target?: number }>;
+  expectedImpact?: Array<{ metricName: string; expectedDelta: number; unit?: string }>;
+  risks?: string[];
+  timeboxWeeks?: number;
+}
+
 export interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
@@ -509,5 +523,27 @@ export function betApi(
         body: JSON.stringify({ outcomeNote }),
         token,
       }),
+  };
+}
+
+export interface DailyBriefingRecord {
+  id: string;
+  workspaceId: string;
+  productId: string;
+  briefingDate: string;
+  content: string;
+  activeBets: number;
+  openAnomalies: number;
+  generatedAt: string;
+}
+
+export function briefingApi(
+  workspaceId: string,
+  productId: string,
+  token: string | null,
+) {
+  const base = `/api/v1/workspaces/${workspaceId}/products/${productId}`;
+  return {
+    getToday: () => request<DailyBriefingRecord>(`${base}/daily-briefing`, { token }),
   };
 }

@@ -117,7 +117,7 @@ export default function GitHubPage({ params }: Props) {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-semibold">Repository Connection</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <p className="text-sm text-muted-foreground mt-1">
                 Connect a GitHub repo to automatically analyze code diffs against your Bet Specs.
               </p>
             </div>
@@ -136,13 +136,13 @@ export default function GitHubPage({ params }: Props) {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Repository:</span>
-                <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">
+                <code className="font-mono bg-muted px-2 py-1 rounded text-xs">
                   {connection.repository}
                 </code>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Webhook ID:</span>
-                <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">
+                <code className="font-mono bg-muted px-2 py-1 rounded text-xs">
                   {connection.webhook_id ?? "—"}
                 </code>
               </div>
@@ -275,19 +275,19 @@ function SyncEventCard({ event }: { event: GitHubSyncEvent }) {
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded uppercase">
+            <span className="text-xs font-mono bg-muted px-2 py-1 rounded uppercase">
               {event.event_type}
             </span>
             <span
               className={cn(
-                "text-xs px-1.5 py-0.5 rounded-full font-medium",
+                "text-xs px-2 py-1 rounded-full font-medium",
                 statusColors[event.status] ?? statusColors["pending"],
               )}
             >
               {event.status}
             </span>
             {hasAffectedBets && (
-              <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
                 {event.analysis!.affectedBets.length} bet{event.analysis!.affectedBets.length > 1 ? "s" : ""} affected
               </span>
             )}
@@ -326,7 +326,7 @@ function SyncEventCard({ event }: { event: GitHubSyncEvent }) {
             <span>Confidence:</span>
             <span
               className={cn(
-                "px-1.5 py-0.5 rounded font-medium",
+                "px-2 py-1 rounded font-medium",
                 event.analysis.confidence === "high"
                   ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                   : event.analysis.confidence === "medium"
@@ -339,7 +339,7 @@ function SyncEventCard({ event }: { event: GitHubSyncEvent }) {
           </div>
 
           {event.analysis.affectedBets.map((bet, i) => (
-            <div key={i} className="rounded-lg bg-muted/50 p-3 space-y-1.5">
+            <div key={i} className="rounded-lg bg-muted/50 p-3 space-y-2">
               <p className="text-xs font-mono text-muted-foreground">{bet.betSpecId}</p>
               <p className="text-xs">
                 <span className="font-medium">Reason: </span>
@@ -351,7 +351,7 @@ function SyncEventCard({ event }: { event: GitHubSyncEvent }) {
               </p>
               <div className="flex gap-1 flex-wrap">
                 {bet.sections.map((s) => (
-                  <span key={s} className="text-xs bg-primary/10 text-primary px-1 py-0.5 rounded">
+                  <span key={s} className="text-xs bg-primary/10 text-primary px-1 py-1 rounded">
                     {s}
                   </span>
                 ))}

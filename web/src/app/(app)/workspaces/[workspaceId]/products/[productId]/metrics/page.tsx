@@ -364,7 +364,7 @@ function MetricCard({
           )}
         </div>
         {hasAnomaly && (
-          <span className="text-xs bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-full shrink-0">
+          <span className="text-xs bg-destructive/10 text-destructive px-2 py-1 rounded-full shrink-0">
             anomaly
           </span>
         )}
@@ -427,7 +427,7 @@ function AnomalyAlert({
         <div>
           <p className="text-sm font-medium">
             <span className={cn(
-              "inline-block px-1.5 py-0.5 rounded text-xs font-bold mr-2 uppercase",
+              "inline-block px-2 py-1 rounded text-xs font-bold mr-2 uppercase",
               anomaly.severity === "high" ? "bg-destructive text-destructive-foreground" :
               anomaly.severity === "medium" ? "bg-orange-500 text-white" :
               "bg-yellow-500 text-white"
@@ -436,7 +436,7 @@ function AnomalyAlert({
             </span>
             {anomaly.metricName ?? anomaly.metricId}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-1">
             {anomaly.direction === "below_target" ? "Below" : "Above"} baseline
             {anomaly.deviationPct !== null ? ` by ${Math.abs(anomaly.deviationPct)}%` : ""}
             {" · "}Actual: {anomaly.actualValue}
@@ -474,7 +474,7 @@ function Field({
     <div className="space-y-1">
       <label className="text-sm font-medium">
         {label}
-        {required && <span className="text-destructive ml-0.5">*</span>}
+        {required && <span className="text-destructive ml-1">*</span>}
       </label>
       {children}
     </div>

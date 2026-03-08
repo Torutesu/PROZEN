@@ -35,7 +35,7 @@ export function AppShell({ children, nav = [], title }: AppShellProps) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                    "px-3 py-2 rounded-md text-sm font-medium transition-colors",
                     pathname === item.href
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted",

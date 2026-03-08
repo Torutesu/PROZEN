@@ -11,13 +11,15 @@ interface Props {
 export default function ProductLayout({ children, params }: Props) {
   const { workspaceId, productId } = use(params);
 
+  const base = `/workspaces/${workspaceId}/products/${productId}`;
   const nav = [
-    { label: "Context Pack", href: `/workspaces/${workspaceId}/products/${productId}/context-pack` },
-    { label: "Bets", href: `/workspaces/${workspaceId}/products/${productId}/bets` },
-    { label: "Metrics", href: `/workspaces/${workspaceId}/products/${productId}/metrics` },
-    { label: "Decision Log", href: `/workspaces/${workspaceId}/products/${productId}/decision-logs` },
-    { label: "GitHub", href: `/workspaces/${workspaceId}/products/${productId}/github` },
-    { label: "Settings", href: `/workspaces/${workspaceId}/products/${productId}/settings` },
+    { label: "Overview", href: base },
+    { label: "Bets", href: `${base}/bets` },
+    { label: "Metrics", href: `${base}/metrics` },
+    { label: "Decision Log", href: `${base}/decision-logs` },
+    { label: "Context Pack", href: `${base}/context-pack` },
+    { label: "GitHub", href: `${base}/github` },
+    { label: "Settings", href: `${base}/settings` },
   ];
 
   return <AppShell nav={nav}>{children}</AppShell>;

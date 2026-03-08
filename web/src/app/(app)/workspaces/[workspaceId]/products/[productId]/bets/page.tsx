@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, use } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { betApi, type BetSpecMeta, type ConversationMessage, type CompleteBetResponse } from "@/lib/api-client";
+import { betApi, type BetSpecMeta, type BetSpecView, type ConversationMessage, type CompleteBetResponse } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -34,6 +34,22 @@ export default function BetsPage({ params }: Props) {
   const [chatInput, setChatInput] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Spec view tab
+  const [specTab, setSpecTab] = useState<"chat" | "spec">("chat");
+  const [specData, setSpecData] = useState<BetSpecView | null>(null);
+
+  // Complete bet
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [outcomeNote, setOutcomeNote] = useState("");
+  const [completing, setCompleting] = useState(false);
+  const [completedLearning, setCompletedLearning] = useState<CompleteBetResponse | null>(null);
+
+  function resetCompletionUi() {
+    setShowCompleteModal(false);
+    setOutcomeNote("");
+    setCompletedLearning(null);
+  }
 
   async function loadBets() {
     setLoading(true);
@@ -80,13 +96,29 @@ export default function BetsPage({ params }: Props) {
 
   async function openConversation(betId: string) {
     setError(null);
+    setShowCompleteModal(false);
+    setOutcomeNote("");
     try {
       const token = await getToken();
       const res = await betApi(workspaceId, productId, token).getConversation(betId);
+      const selectedBet = bets.find((b) => b.id === betId);
+      if (selectedBet?.learningSummary) {
+        setCompletedLearning({ ok: true, learning_summary: selectedBet.learningSummary });
+      } else {
+        setCompletedLearning(null);
+      }
       setActiveBetId(betId);
       setMessages(res.messages);
       setAgentState(res.agent_state);
+      setSpecTab("chat");
+      setSpecData(null);
       setView("conversation");
+
+      // Load spec if available
+      const api = betApi(workspaceId, productId, token);
+      api.get(betId).then((detail) => {
+        if (detail.spec) setSpecData(detail.spec as BetSpecView);
+      }).catch(() => { /* spec not available yet */ });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load conversation.");
     }
@@ -119,10 +151,43 @@ export default function BetsPage({ params }: Props) {
       };
       setMessages((prev) => [...prev, agentMsg]);
       setAgentState(res.agent_state);
+      if (res.spec) setSpecData(res.spec as BetSpecView);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send message.");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleComplete() {
+    if (!activeBetId || !outcomeNote.trim()) return;
+    setCompleting(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      const res = await betApi(workspaceId, productId, token).complete(
+        activeBetId,
+        outcomeNote.trim(),
+      );
+      setCompletedLearning(res);
+      setShowCompleteModal(false);
+      setOutcomeNote("");
+      setBets((prev) =>
+        prev.map((b) =>
+          b.id === activeBetId
+            ? {
+                ...b,
+                status: "completed",
+                outcomeNote: outcomeNote.trim(),
+                learningSummary: res.learning_summary,
+              }
+            : b,
+        ),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to complete bet.");
+    } finally {
+      setCompleting(false);
     }
   }
 
@@ -255,17 +320,115 @@ export default function BetsPage({ params }: Props) {
           <div className="flex items-center gap-3 mb-4">
             <button
               className="text-sm text-muted-foreground hover:text-foreground"
-              onClick={() => setView("list")}
+              onClick={() => {
+                setView("list");
+                setActiveBetId(null);
+                resetCompletionUi();
+              }}
             >
               ← Back to bets
             </button>
-            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+            <span className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">
               {agentState}
             </span>
+            <div className="ml-auto">
+              {bets.find((b) => b.id === activeBetId)?.status !== "completed" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => setShowCompleteModal(true)}
+                >
+                  Mark Complete
+                </Button>
+              )}
+            </div>
           </div>
 
+          {/* Learning display after completion */}
+          {completedLearning && (
+            <div className="mb-4 rounded-xl border border-green-300 bg-green-50 dark:bg-green-900/20 p-4 space-y-1">
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">Bet completed — Learning captured</p>
+              <p className="text-sm text-green-700 dark:text-green-400 leading-relaxed">
+                {completedLearning.learning_summary}
+              </p>
+            </div>
+          )}
+
+          {/* Complete modal */}
+          {showCompleteModal && (
+            <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+              <h3 className="font-medium text-sm">Record Outcome</h3>
+              <p className="text-xs text-muted-foreground">
+                Describe what actually happened — did the hypothesis hold? What metrics moved? Why?
+              </p>
+              <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="e.g. We shipped the shorter onboarding. 7-day retention improved by +2.3% (vs +5% target). The activation step was the bottleneck, not the length."
+                value={outcomeNote}
+                onChange={(e) => setOutcomeNote(e.target.value)}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleComplete}
+                  disabled={completing || !outcomeNote.trim()}
+                >
+                  {completing ? "Generating learning…" : "Complete & Generate Learning"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowCompleteModal(false);
+                    setOutcomeNote("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+
+          {/* Tab switcher */}
+          {specData && (
+            <div className="flex gap-1 mb-2">
+              <button
+                onClick={() => setSpecTab("chat")}
+                className={cn(
+                  "px-3 py-1 text-xs rounded-md font-medium transition-colors",
+                  specTab === "chat"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                )}
+              >
+                Conversation
+              </button>
+              <button
+                onClick={() => setSpecTab("spec")}
+                className={cn(
+                  "px-3 py-1 text-xs rounded-md font-medium transition-colors",
+                  specTab === "spec"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                )}
+              >
+                Bet Spec
+              </button>
+            </div>
+          )}
+
+          {/* Spec view */}
+          {specTab === "spec" && specData && (
+            <div className="flex-1 overflow-y-auto pr-1">
+              <SpecView spec={specData} />
+            </div>
+          )}
+
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className={cn("flex-1 overflow-y-auto space-y-4 pr-1", specTab === "spec" && specData ? "hidden" : "")}>
             {messages.map((msg, i) => (
               <div
                 key={i}
@@ -276,7 +439,7 @@ export default function BetsPage({ params }: Props) {
               >
                 <div
                   className={cn(
-                    "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm",
+                    "max-w-[80%] rounded-2xl px-4 py-2 text-sm",
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground rounded-br-sm"
                       : "bg-muted text-foreground rounded-bl-sm",
@@ -288,7 +451,7 @@ export default function BetsPage({ params }: Props) {
             ))}
             {sending && (
               <div className="flex justify-start">
-                <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm text-muted-foreground">
+                <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2 text-sm text-muted-foreground">
                   Thinking…
                 </div>
               </div>
@@ -299,7 +462,7 @@ export default function BetsPage({ params }: Props) {
           {/* Input */}
           <div className="mt-4 flex gap-2">
             <input
-              className="flex-1 rounded-xl border border-input bg-background px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex-1 rounded-xl border border-input bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder={
                 agentState === "done"
                   ? "Spec finalized. Ask for changes or say 'looks good'."
@@ -325,6 +488,110 @@ export default function BetsPage({ params }: Props) {
   );
 }
 
+function SpecView({ spec }: { spec: BetSpecView }) {
+  return (
+    <div className="space-y-5 pb-6">
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold text-base">{spec.title}</h2>
+        </div>
+
+        {spec.hypothesis && (
+          <SpecSection label="Hypothesis">
+            <p className="text-sm leading-relaxed italic">&quot;{spec.hypothesis}&quot;</p>
+          </SpecSection>
+        )}
+
+        {spec.problemStatement && (
+          <SpecSection label="Problem Statement">
+            <p className="text-sm leading-relaxed">{spec.problemStatement}</p>
+          </SpecSection>
+        )}
+
+        {spec.userSegment && (
+          <SpecSection label="User Segment">
+            <p className="text-sm">{spec.userSegment}</p>
+          </SpecSection>
+        )}
+
+        {spec.acceptanceCriteria && spec.acceptanceCriteria.length > 0 && (
+          <SpecSection label="Acceptance Criteria">
+            <ul className="space-y-2">
+              {spec.acceptanceCriteria.map((ac, i) => (
+                <li key={i} className="text-sm flex items-start gap-2">
+                  <span className="text-primary mt-1">·</span>
+                  <span>
+                    {ac.criterion}
+                    {ac.metric && ac.target !== undefined && (
+                      <span className="text-muted-foreground ml-1">
+                        ({ac.metric}: {ac.target})
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </SpecSection>
+        )}
+
+        {spec.expectedImpact && spec.expectedImpact.length > 0 && (
+          <SpecSection label="Expected Impact">
+            <ul className="space-y-2">
+              {spec.expectedImpact.map((imp, i) => (
+                <li key={i} className="text-sm flex items-center gap-2">
+                  <span className="font-mono text-primary">
+                    {imp.expectedDelta > 0 ? "+" : ""}{imp.expectedDelta}{imp.unit ?? ""}
+                  </span>
+                  <span className="text-muted-foreground">{imp.metricName}</span>
+                </li>
+              ))}
+            </ul>
+          </SpecSection>
+        )}
+
+        {spec.constraints && spec.constraints.length > 0 && (
+          <SpecSection label="Constraints">
+            <ul className="space-y-1">
+              {spec.constraints.map((c, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span>·</span> {c}
+                </li>
+              ))}
+            </ul>
+          </SpecSection>
+        )}
+
+        {spec.risks && spec.risks.length > 0 && (
+          <SpecSection label="Risks">
+            <ul className="space-y-1">
+              {spec.risks.map((r, i) => (
+                <li key={i} className="text-sm text-destructive/80 flex items-start gap-2">
+                  <span>·</span> {r}
+                </li>
+              ))}
+            </ul>
+          </SpecSection>
+        )}
+
+        {spec.timeboxWeeks && (
+          <SpecSection label="Timebox">
+            <p className="text-sm font-mono">{spec.timeboxWeeks} weeks</p>
+          </SpecSection>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SpecSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+      {children}
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     draft: "bg-muted text-muted-foreground",
@@ -333,7 +600,7 @@ function StatusBadge({ status }: { status: string }) {
     cancelled: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
   };
   return (
-    <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-medium", colors[status] ?? colors["draft"])}>
+    <span className={cn("text-xs px-2 py-1 rounded-full font-medium", colors[status] ?? colors["draft"])}>
       {status}
     </span>
   );

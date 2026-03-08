@@ -153,7 +153,7 @@ function Field({
     <div className="space-y-1">
       <label className="text-sm font-medium">
         {label}
-        {required && <span className="text-destructive ml-0.5">*</span>}
+        {required && <span className="text-destructive ml-1">*</span>}
       </label>
       {children}
     </div>

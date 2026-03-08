@@ -106,13 +106,13 @@ export default function WorkspacePage({ params }: Props) {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-semibold">{p.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {p.status === "archived" ? "Archived · " : ""}
                           Created {new Date(p.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       {p.status === "archived" && (
-                        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                        <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
                           archived
                         </span>
                       )}
@@ -121,7 +121,7 @@ export default function WorkspacePage({ params }: Props) {
                       {NAV_ITEMS(workspaceId, p.id).map((item) => (
                         <button
                           key={item.href}
-                          className="text-xs border border-border rounded-md px-2.5 py-1 hover:bg-accent/10 transition-colors"
+                          className="text-xs border border-border rounded-md px-3 py-1 hover:bg-accent/10 transition-colors"
                           onClick={() => router.push(item.href)}
                         >
                           {item.label}
