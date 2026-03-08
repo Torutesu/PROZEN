@@ -7,7 +7,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-1738BD.svg?style=flat-square)](LICENSE)
 [![PRD Version](https://img.shields.io/badge/PRD-v1.3-3B5BDB.svg?style=flat-square)](docs/requirements-spec.md)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-10B981.svg?style=flat-square)](#status)
-[![Powered by Claude](https://img.shields.io/badge/Powered%20by-Claude%20Sonnet-EF4444.svg?style=flat-square)](https://anthropic.com)
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-F59E0B.svg?style=flat-square)](#local-setup)
 
 <br/>
