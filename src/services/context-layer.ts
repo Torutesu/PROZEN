@@ -15,6 +15,7 @@ import {
   buildSectionsFromRawText,
   structureContextInput,
 } from "./ai-structurer.js";
+import { compress } from "./compression-provider.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -541,6 +542,228 @@ export async function getDecisionLogs(
       createdBy: r.createdBy,
       createdAt: r.createdAt.toISOString(),
     })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Context Pack Compression
+// ---------------------------------------------------------------------------
+
+export interface CompressContextInput {
+  workspaceId: string;
+  productId: string;
+  createdBy: string;
+  requestId?: string | undefined;
+  aggressiveness?: number; // 0–1, default 0.15
+}
+
+export interface CompressContextResult {
+  versionId: string;
+  versionNumber: number;
+  contextPackId: string;
+  compressionRatio: number;
+  provider: string;
+  model: string;
+  latencyMs: number;
+  fallbackUsed: boolean;
+  createdAt: string;
+}
+
+/** Serialize a ContextPackPayload to plain text for compression. */
+function serializePayloadToText(payload: ContextPackPayload): string {
+  const lines: string[] = [];
+
+  lines.push(`Summary: ${payload.summary}`);
+
+  const s = payload.sections;
+
+  if (s.productVision.length > 0) {
+    lines.push("\n## Product Vision");
+    for (const v of s.productVision)
+      lines.push(`[${v.id}] ${v.statement}`);
+  }
+  if (s.targetUsers.length > 0) {
+    lines.push("\n## Target Users");
+    for (const u of s.targetUsers) lines.push(`[${u.id}] ${u.statement}`);
+  }
+  if (s.goals.length > 0) {
+    lines.push("\n## Goals");
+    for (const g of s.goals) lines.push(`[${g.id}] ${g.statement}`);
+  }
+  if (s.constraints.length > 0) {
+    lines.push("\n## Constraints");
+    for (const c of s.constraints) lines.push(`[${c.id}] ${c.statement}`);
+  }
+  if (s.kpiDefinitions.length > 0) {
+    lines.push("\n## KPI Definitions");
+    for (const k of s.kpiDefinitions)
+      lines.push(
+        `[${k.metricId}] ${k.metricName}: ${k.definition} (cadence: ${k.cadence}${k.targetDirection ? `, direction: ${k.targetDirection}` : ""})`,
+      );
+  }
+  if (s.glossary.length > 0) {
+    lines.push("\n## Glossary");
+    for (const g of s.glossary) lines.push(`${g.term}: ${g.definition}`);
+  }
+  if (s.openQuestions.length > 0) {
+    lines.push("\n## Open Questions");
+    for (const q of s.openQuestions) lines.push(`[${q.id}] ${q.statement}`);
+  }
+
+  return lines.join("\n");
+}
+
+/** Extract safe terms (IDs and names) to protect during compression. */
+function extractSafeTerms(payload: ContextPackPayload): string[] {
+  const terms: string[] = [];
+  const s = payload.sections;
+
+  for (const v of s.productVision) terms.push(v.id);
+  for (const u of s.targetUsers) terms.push(u.id);
+  for (const g of s.goals) terms.push(g.id);
+  for (const c of s.constraints) terms.push(c.id);
+  for (const q of s.openQuestions) terms.push(q.id);
+  for (const k of s.kpiDefinitions) terms.push(k.metricId, k.metricName);
+  for (const g of s.glossary) terms.push(g.term);
+
+  return [...new Set(terms)];
+}
+
+export async function compressContext(
+  input: CompressContextInput,
+): Promise<CompressContextResult | null> {
+  const db = getDb();
+
+  // 1. Load current version.
+  const currentPayload = await getCurrentContext(
+    input.workspaceId,
+    input.productId,
+  );
+  if (!currentPayload) return null;
+
+  // 2. Serialize to text and run compression.
+  const text = serializePayloadToText(currentPayload);
+  const safeTerms = extractSafeTerms(currentPayload);
+
+  const compressionResult = await compress({
+    text,
+    safeTerms,
+    ...(input.aggressiveness !== undefined
+      ? { aggressiveness: input.aggressiveness }
+      : {}),
+  });
+
+  // 3. Re-structure the compressed text into typed sections.
+  const structured = await structureContextInput(
+    compressionResult.compressedText,
+  );
+
+  // 4. Persist the compressed version in a transaction.
+  const result = await db.transaction(async (tx) => {
+    const pack = (
+      await tx
+        .select()
+        .from(contextPacks)
+        .where(
+          and(
+            eq(contextPacks.workspaceId, input.workspaceId),
+            eq(contextPacks.productId, input.productId),
+          ),
+        )
+        .limit(1)
+    )[0];
+
+    if (!pack) return null;
+
+    const maxRow = (
+      await tx
+        .select({ m: max(contextPackVersions.versionNumber) })
+        .from(contextPackVersions)
+        .where(eq(contextPackVersions.contextPackId, pack.id))
+    )[0];
+
+    const nextVersion = (maxRow?.m ?? 0) + 1;
+    const createdAt = nowIso();
+
+    const compressedPayload: ContextPackPayload = {
+      schemaVersion: "1.0.0",
+      contextPackId: pack.id,
+      workspaceId: input.workspaceId,
+      productId: input.productId,
+      version: nextVersion,
+      source: "compressed",
+      summary: structured.summary,
+      sections: structured.sections,
+      decisionReferences: currentPayload.decisionReferences,
+      tags: currentPayload.tags ?? [],
+      compression: {
+        isCompressed: true,
+        compressionNotes: [
+          `provider:${compressionResult.provider}`,
+          `model:${compressionResult.model}`,
+          `ratio:${compressionResult.compressionRatio.toFixed(3)}`,
+          `fallback:${compressionResult.fallbackUsed}`,
+        ].join(" "),
+      },
+      createdAt,
+      createdBy: input.createdBy,
+    };
+
+    const versionId = `cpv_${newId()}`;
+    await tx.insert(contextPackVersions).values({
+      id: versionId,
+      contextPackId: pack.id,
+      versionNumber: nextVersion,
+      summary: compressedPayload.summary,
+      structuredPayload: compressedPayload as unknown as Record<string, unknown>,
+      source: "compressed",
+      createdBy: input.createdBy,
+    });
+
+    await tx
+      .update(contextPacks)
+      .set({ currentVersionId: versionId, updatedAt: new Date() })
+      .where(eq(contextPacks.id, pack.id));
+
+    return {
+      contextPackId: pack.id,
+      versionId,
+      nextVersion,
+      createdAt,
+    };
+  });
+
+  if (!result) return null;
+
+  // 5. Audit event.
+  await emitAuditEvent({
+    workspaceId: input.workspaceId,
+    actorId: input.createdBy,
+    eventType: "context_pack.compressed",
+    resourceType: "context_pack_version",
+    resourceId: result.versionId,
+    requestId: input.requestId,
+    metadata: {
+      productId: input.productId,
+      newVersion: result.nextVersion,
+      compressionProvider: compressionResult.provider,
+      compressionModel: compressionResult.model,
+      compressionRatio: compressionResult.compressionRatio,
+      fallbackUsed: compressionResult.fallbackUsed,
+      latencyMs: compressionResult.latencyMs,
+    },
+  });
+
+  return {
+    versionId: result.versionId,
+    versionNumber: result.nextVersion,
+    contextPackId: result.contextPackId,
+    compressionRatio: compressionResult.compressionRatio,
+    provider: compressionResult.provider,
+    model: compressionResult.model,
+    latencyMs: compressionResult.latencyMs,
+    fallbackUsed: compressionResult.fallbackUsed,
+    createdAt: result.createdAt,
   };
 }
 

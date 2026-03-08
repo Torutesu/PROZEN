@@ -3,7 +3,14 @@
     "allow": [
       "Bash(npx next lint --dir src)",
       "Bash(npx eslint src --ext .ts,.tsx --max-warnings 0)",
-      "Bash(npx eslint src --ext .ts,.tsx)"
+      "Bash(npx eslint src --ext .ts,.tsx)",
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && head -20 {}')",
+      "Bash(pnpm tsc --noEmit)",
+      "Bash(ls /Users/torutano/PROZEN/PROZEN/.env*)",
+      "Bash(ls /Users/torutano/PROZEN/PROZEN/web/.env*)",
+      "Bash(echo $ANTHROPIC_API_KEY)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm test)"
     ]
   }
 }

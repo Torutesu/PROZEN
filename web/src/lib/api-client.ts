@@ -448,6 +448,7 @@ export interface GitHubSyncEvent {
     confidence: "low" | "medium" | "high";
   } | null;
   status: string;
+  proposal_status: "pending" | "accepted" | "dismissed";
   retry_count: number;
   next_attempt_at: string | null;
   last_error: string | null;
@@ -482,6 +483,11 @@ export function githubApi(
       request<{ total: number; limit: number; offset: number; items: GitHubSyncEvent[] }>(
         `${base}/github-sync-events?limit=${limit}&offset=${offset}`,
         { token },
+      ),
+    resolveProposal: (eventId: string, action: "accept" | "dismiss") =>
+      request<{ event_id: string; proposal_status: string }>(
+        `${base}/github-sync-events/${eventId}`,
+        { method: "PATCH", body: JSON.stringify({ action }), token },
       ),
   };
 }

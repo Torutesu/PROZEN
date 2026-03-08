@@ -22,6 +22,7 @@ export default function GitHubPage({ params }: Props) {
   const [events, setEvents] = useState<GitHubSyncEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   // Connect form
   const [showForm, setShowForm] = useState(false);
@@ -95,6 +96,26 @@ export default function GitHubPage({ params }: Props) {
       setError(e instanceof Error ? e.message : "Failed to disconnect.");
     } finally {
       setDisconnecting(false);
+    }
+  }
+
+  async function handleResolveProposal(eventId: string, action: "accept" | "dismiss") {
+    setResolvingId(eventId);
+    setError(null);
+    try {
+      const token = await getToken();
+      await githubApi(workspaceId, productId, token).resolveProposal(eventId, action);
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId
+            ? { ...e, proposal_status: action === "accept" ? "accepted" : "dismissed" }
+            : e,
+        ),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update proposal.");
+    } finally {
+      setResolvingId(null);
     }
   }
 
@@ -240,7 +261,12 @@ export default function GitHubPage({ params }: Props) {
           ) : (
             <div className="space-y-3">
               {events.map((event) => (
-                <SyncEventCard key={event.id} event={event} />
+                <SyncEventCard
+                  key={event.id}
+                  event={event}
+                  resolving={resolvingId === event.id}
+                  onResolve={handleResolveProposal}
+                />
               ))}
             </div>
           )}
@@ -249,7 +275,15 @@ export default function GitHubPage({ params }: Props) {
   );
 }
 
-function SyncEventCard({ event }: { event: GitHubSyncEvent }) {
+function SyncEventCard({
+  event,
+  resolving,
+  onResolve,
+}: {
+  event: GitHubSyncEvent;
+  resolving: boolean;
+  onResolve: (eventId: string, action: "accept" | "dismiss") => void;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   const statusColors: Record<string, string> = {
@@ -309,7 +343,7 @@ function SyncEventCard({ event }: { event: GitHubSyncEvent }) {
           <p className="text-xs text-muted-foreground whitespace-nowrap">
             {new Date(event.created_at).toLocaleString()}
           </p>
-          {event.analysis && (
+          {(event.analysis || event.last_error) && (
             <button
               className="text-xs text-primary hover:underline"
               onClick={() => setExpanded(!expanded)}
@@ -317,47 +351,85 @@ function SyncEventCard({ event }: { event: GitHubSyncEvent }) {
               {expanded ? "Hide" : "Details"}
             </button>
           )}
+          {event.retry_count > 0 && (
+            <p className="text-xs text-muted-foreground">retry {event.retry_count}×</p>
+          )}
         </div>
       </div>
 
-      {expanded && event.analysis && (
+      {expanded && (event.analysis || event.last_error) && (
         <div className="border-t border-border pt-3 space-y-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Confidence:</span>
-            <span
-              className={cn(
-                "px-2 py-1 rounded font-medium",
-                event.analysis.confidence === "high"
-                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                  : event.analysis.confidence === "medium"
-                  ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {event.analysis.confidence}
-            </span>
-          </div>
-
-          {event.analysis.affectedBets.map((bet, i) => (
-            <div key={i} className="rounded-lg bg-muted/50 p-3 space-y-2">
-              <p className="text-xs font-mono text-muted-foreground">{bet.betSpecId}</p>
-              <p className="text-xs">
-                <span className="font-medium">Reason: </span>
-                {bet.reason}
-              </p>
-              <p className="text-xs">
-                <span className="font-medium">Suggested update: </span>
-                {bet.suggestedUpdate}
-              </p>
-              <div className="flex gap-1 flex-wrap">
-                {bet.sections.map((s) => (
-                  <span key={s} className="text-xs bg-primary/10 text-primary px-1 py-1 rounded">
-                    {s}
-                  </span>
-                ))}
+          {event.last_error && (
+            <p className="text-xs text-destructive font-mono bg-destructive/5 rounded px-2 py-1 break-all">
+              {event.last_error}
+            </p>
+          )}
+          {event.analysis && (
+            <>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Confidence:</span>
+                <span
+                  className={cn(
+                    "px-2 py-1 rounded font-medium",
+                    event.analysis.confidence === "high"
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                      : event.analysis.confidence === "medium"
+                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {event.analysis.confidence}
+                </span>
               </div>
-            </div>
-          ))}
+              {event.analysis.affectedBets.map((bet, i) => (
+                <div key={i} className="rounded-lg bg-muted/50 p-3 space-y-2">
+                  <p className="text-xs font-mono text-muted-foreground">{bet.betSpecId}</p>
+                  <p className="text-xs">
+                    <span className="font-medium">Reason: </span>
+                    {bet.reason}
+                  </p>
+                  <p className="text-xs">
+                    <span className="font-medium">Suggested update: </span>
+                    {bet.suggestedUpdate}
+                  </p>
+                  <div className="flex gap-1 flex-wrap">
+                    {bet.sections.map((s) => (
+                      <span key={s} className="text-xs bg-primary/10 text-primary px-1 py-1 rounded">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Accept / Dismiss proposal actions */}
+              {event.proposal_status === "pending" ? (
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    className="text-xs h-7"
+                    disabled={resolving}
+                    onClick={() => onResolve(event.id, "accept")}
+                  >
+                    {resolving ? "…" : "Accept update"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-7 text-muted-foreground"
+                    disabled={resolving}
+                    onClick={() => onResolve(event.id, "dismiss")}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground capitalize">
+                  Proposal {event.proposal_status}
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

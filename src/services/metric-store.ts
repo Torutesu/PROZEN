@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getDb } from "../db/client.js";
-import { auditEvents, metricAnomalies, metricReadings, metrics } from "../db/schema.js";
+import { auditEvents, betSpecs, metricAnomalies, metricReadings, metrics } from "../db/schema.js";
 import { detectAnomaly, generateImpactNarrative } from "./anomaly-detector.js";
 import { getCurrentContext } from "./context-layer.js";
 
@@ -574,6 +574,121 @@ export async function getAnomalies(
       isResolved: r.isResolved,
       createdAt: r.createdAt,
     })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Anomaly → Bet impact linkage (GAP-004)
+// ---------------------------------------------------------------------------
+
+export interface AffectedBet {
+  betId: string;
+  title: string;
+  status: string;
+  linkageReason: string;
+}
+
+export interface AffectedBetsResult {
+  anomalyId: string;
+  metricId: string;
+  metricName: string;
+  affectedBets: AffectedBet[];
+}
+
+export async function getAffectedBets(
+  workspaceId: string,
+  productId: string,
+  anomalyId: string,
+): Promise<AffectedBetsResult | null> {
+  const db = getDb();
+
+  // Fetch the anomaly and its metric.
+  const anomalyRow = (
+    await db
+      .select({
+        id: metricAnomalies.id,
+        metricId: metricAnomalies.metricId,
+        direction: metricAnomalies.direction,
+        severity: metricAnomalies.severity,
+        deviationPct: metricAnomalies.deviationPct,
+      })
+      .from(metricAnomalies)
+      .where(eq(metricAnomalies.id, anomalyId))
+      .limit(1)
+  )[0];
+
+  if (!anomalyRow) return null;
+
+  const metric = await getMetricById(workspaceId, productId, anomalyRow.metricId);
+  if (!metric) return null;
+
+  // Layer 1: bets directly linked to this metric via betSpecId on the metric.
+  const directlyLinkedBets = await db
+    .select({ id: betSpecs.id, title: betSpecs.title, status: betSpecs.status })
+    .from(betSpecs)
+    .where(
+      and(
+        eq(betSpecs.workspaceId, workspaceId),
+        eq(betSpecs.productId, productId),
+        inArray(betSpecs.status, ["active", "draft"]),
+      ),
+    );
+
+  const affectedBets: AffectedBet[] = [];
+
+  for (const bet of directlyLinkedBets) {
+    // Check if this bet's metric target references the affected metric's layer/name.
+    // Layer 2: look for metrics at the bet layer that share a name keyword with the anomalous metric.
+    const metricKeywords = metric.name.toLowerCase().split(/\s+/);
+    const betTitleKeywords = bet.title.toLowerCase().split(/\s+/);
+
+    // Direct metric link: a metric in the same product has betSpecId pointing to this bet.
+    const linkedMetrics = await db
+      .select({ id: metrics.id, name: metrics.name, layer: metrics.layer })
+      .from(metrics)
+      .where(
+        and(
+          eq(metrics.workspaceId, workspaceId),
+          eq(metrics.productId, productId),
+          eq(metrics.betSpecId, bet.id),
+        ),
+      );
+
+    if (linkedMetrics.length > 0) {
+      const linkedNames = linkedMetrics.map((m) => m.name.toLowerCase());
+      const hasOverlap = metricKeywords.some((kw) =>
+        linkedNames.some((n) => n.includes(kw)),
+      );
+      if (hasOverlap || metric.layer === "bet") {
+        affectedBets.push({
+          betId: bet.id,
+          title: bet.title,
+          status: bet.status,
+          linkageReason: `Metric "${metric.name}" is directly linked to this bet and showed a ${anomalyRow.direction === "below_target" ? "below-target" : "above-baseline"} anomaly${anomalyRow.deviationPct !== null ? ` (${Math.abs(Number(anomalyRow.deviationPct))}% deviation)` : ""}.`,
+        });
+        continue;
+      }
+    }
+
+    // Keyword overlap between metric name and bet title.
+    const titleOverlap = metricKeywords.some((kw) =>
+      kw.length > 3 && betTitleKeywords.some((bkw) => bkw.includes(kw) || kw.includes(bkw)),
+    );
+    if (titleOverlap) {
+      affectedBets.push({
+        betId: bet.id,
+        title: bet.title,
+        status: bet.status,
+        linkageReason: `Metric "${metric.name}" keyword overlap with bet title suggests this bet's hypothesis may be affected by the ${anomalyRow.severity} severity anomaly.`,
+      });
+    }
+  }
+
+  return {
+    anomalyId,
+    metricId: metric.id,
+    metricName: metric.name,
+    affectedBets,
   };
 }
 

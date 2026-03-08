@@ -471,6 +471,7 @@ app.get(`${BASE}/github-sync-events`, async (c) => {
       diff_summary: r.diffSummary,
       analysis: r.analysis,
       status: r.status,
+      proposal_status: r.proposalStatus,
       retry_count: r.retryCount,
       next_attempt_at: r.nextAttemptAt,
       last_error: r.lastError,
@@ -478,6 +479,91 @@ app.get(`${BASE}/github-sync-events`, async (c) => {
       processed_at: r.processedAt,
     })),
   });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH .../github-sync-events/:eventId — accept or dismiss a Living Spec proposal
+// ---------------------------------------------------------------------------
+app.patch(`${BASE}/github-sync-events/:eventId`, async (c) => {
+  const { workspaceId, productId, eventId } = c.req.param();
+  const actorId = c.get("actorId");
+
+  const access = await ensureWorkspaceProductAccess(actorId, workspaceId, productId);
+  if (!access.ok) {
+    return apiError(c, access.status, access.code, access.message);
+  }
+
+  let body: unknown;
+  try {
+    const raw = await c.req.text();
+    body = raw.length > 0 ? (JSON.parse(raw) as unknown) : {};
+  } catch {
+    return apiError(c, 400, "invalid_json", "Request body must be valid JSON.");
+  }
+
+  const b = body as Record<string, unknown>;
+  if (b["action"] !== "accept" && b["action"] !== "dismiss") {
+    return apiError(c, 422, "invalid_payload", '"action" must be "accept" or "dismiss".');
+  }
+  const action = b["action"] as "accept" | "dismiss";
+
+  const db = getDb();
+
+  const event = (
+    await db
+      .select()
+      .from(githubSyncEvents)
+      .where(
+        and(
+          eq(githubSyncEvents.id, eventId),
+          eq(githubSyncEvents.workspaceId, workspaceId),
+        ),
+      )
+      .limit(1)
+  )[0];
+
+  if (!event) {
+    return apiError(c, 404, "event_not_found", "Sync event not found.", { workspaceId, eventId });
+  }
+
+  await db
+    .update(githubSyncEvents)
+    .set({ proposalStatus: action === "accept" ? "accepted" : "dismissed" })
+    .where(eq(githubSyncEvents.id, eventId));
+
+  // On accept: write the suggested updates into the Context Pack so the
+  // learning is persisted even without a full structured spec edit.
+  if (action === "accept") {
+    const analysis = event.analysis as {
+      affectedBets?: Array<{ betSpecId: string; suggestedUpdate: string; reason: string }>;
+      summary?: string;
+    } | null;
+
+    if (analysis?.affectedBets && analysis.affectedBets.length > 0) {
+      const { ingestContext } = await import("../services/context-layer.js");
+      const updateText = [
+        `[Living Spec update accepted from GitHub commit]`,
+        analysis.summary ?? "",
+        ...analysis.affectedBets.map(
+          (ab) => `Bet ${ab.betSpecId}: ${ab.suggestedUpdate}`,
+        ),
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      ingestContext({
+        workspaceId,
+        productId,
+        rawInput: updateText,
+        tags: ["living_spec", eventId],
+        createdBy: actorId,
+      }).catch(() => {
+        // best-effort
+      });
+    }
+  }
+
+  return c.json({ event_id: eventId, proposal_status: action === "accept" ? "accepted" : "dismissed" });
 });
 
 export default app;

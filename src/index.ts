@@ -17,6 +17,7 @@ import githubRoutes from "./api/github-routes.js";
 import workspaceRoutes from "./api/workspace-routes.js";
 import briefingRoutes from "./api/briefing-routes.js";
 import { startGitHubSyncQueueWorker } from "./services/github-sync-queue.js";
+import { startScheduler } from "./jobs/scheduler.js";
 
 const host = "127.0.0.1";
 const port = Number(process.env["PORT"] ?? 8787);
@@ -85,8 +86,9 @@ app.notFound((c) =>
 
 serve({ fetch: app.fetch, hostname: host, port }, () => {
   const stopWorker = startGitHubSyncQueueWorker();
-  process.on("SIGTERM", stopWorker);
-  process.on("SIGINT", stopWorker);
+  const stopScheduler = startScheduler();
+  process.on("SIGTERM", () => { stopWorker(); stopScheduler(); });
+  process.on("SIGINT", () => { stopWorker(); stopScheduler(); });
 
   process.stdout.write(`PROZEN API started on http://${host}:${port}\n`);
   process.stdout.write(`  GET  /healthz\n`);
@@ -103,6 +105,9 @@ serve({ fetch: app.fetch, hostname: host, port }, () => {
   );
   process.stdout.write(
     `  POST /api/v1/workspaces/:wid/products/:pid/context-pack/restore\n`,
+  );
+  process.stdout.write(
+    `  POST /api/v1/workspaces/:wid/products/:pid/context-pack/compress\n`,
   );
   process.stdout.write(
     `  POST /api/v1/workspaces/:wid/products/:pid/decision-logs\n`,
@@ -138,7 +143,10 @@ serve({ fetch: app.fetch, hostname: host, port }, () => {
     `  POST /api/v1/workspaces/:wid/products/:pid/metrics/ingest\n`,
   );
   process.stdout.write(
-    `  GET  /api/v1/workspaces/:wid/products/:pid/metrics/anomalies\n`,
+    `  GET  /api/v1/workspaces/:wid/products/:pid/anomalies\n`,
+  );
+  process.stdout.write(
+    `  GET  /api/v1/workspaces/:wid/products/:pid/anomalies/:anomalyId/affected-bets\n`,
   );
   process.stdout.write(
     `  GET  /api/v1/workspaces/:wid/audit-events?productId=&limit=&offset=\n`,

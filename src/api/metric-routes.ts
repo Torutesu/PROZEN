@@ -12,6 +12,7 @@ import { apiError, createApp } from "./middleware.js";
 import {
   addReading,
   createMetric,
+  getAffectedBets,
   getAnomalies,
   getMetricById,
   getMetrics,
@@ -310,6 +311,24 @@ app.get(`${BASE}/anomalies`, async (c) => {
     return c.json({ total: result.total, limit, offset, items: result.items });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to list anomalies.";
+    return apiError(c, 500, "fetch_error", message);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET .../anomalies/:anomalyId/affected-bets
+// ---------------------------------------------------------------------------
+app.get(`${BASE}/anomalies/:anomalyId/affected-bets`, async (c) => {
+  const { workspaceId, productId, anomalyId } = c.req.param();
+
+  try {
+    const result = await getAffectedBets(workspaceId, productId, anomalyId);
+    if (!result) {
+      return apiError(c, 404, "anomaly_not_found", "Anomaly not found.", { workspaceId, anomalyId });
+    }
+    return c.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to get affected bets.";
     return apiError(c, 500, "fetch_error", message);
   }
 });

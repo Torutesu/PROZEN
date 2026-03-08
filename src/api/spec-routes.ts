@@ -328,7 +328,11 @@ app.post(`${BASE}/bets/:betId/complete`, async (c) => {
     if (!result) {
       return apiError(c, 404, "bet_spec_not_found", "Bet spec not found.", { workspaceId, betId });
     }
-    return c.json({ ok: true, learning_summary: result.learningSummary });
+    return c.json({
+      ok: true,
+      learning_summary: result.learningSummary,
+      next_bet_hypothesis: result.nextBetHypothesis ?? null,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to complete bet.";
     return apiError(c, 500, "complete_error", message);

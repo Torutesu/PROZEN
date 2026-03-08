@@ -7,10 +7,10 @@
   "scripts": {
     "dev": "npm run build && npm run start",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/src/index.js",
+    "start": "node --env-file=.env dist/src/index.js",
     "typecheck": "tsc --noEmit",
-    "migrate": "npm run build && node dist/src/db/migrate.js",
-    "backfill:github-tokens": "npm run build && node dist/src/scripts/backfill-github-token-encryption.js",
+    "migrate": "npm run build && node --env-file=.env dist/src/db/migrate.js",
+    "backfill:github-tokens": "npm run build && node --env-file=.env dist/src/scripts/backfill-github-token-encryption.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "validate:bet-spec": "npm run build && node dist/src/scripts/validate-bet-spec.js",

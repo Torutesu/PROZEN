@@ -14,7 +14,7 @@ import {
 import type { BetSpec } from "../domain/bet-spec.js";
 import type { AgentState, ConversationMessage } from "./spec-agent.js";
 import { callSpecAgent } from "./spec-agent.js";
-import { getCurrentContext } from "./context-layer.js";
+import { getCurrentContext, ingestContext } from "./context-layer.js";
 
 const nowIso = () => new Date().toISOString();
 const newId = () => randomUUID().replace(/-/g, "");
@@ -810,6 +810,7 @@ export async function restoreBetSpec(
 
 export interface CompleteBetSpecResult {
   learningSummary: string;
+  nextBetHypothesis: string | null;
 }
 
 export async function completeBetSpec(
@@ -852,8 +853,9 @@ export async function completeBetSpec(
     }
   }
 
-  // Generate learning summary via Claude.
+  // Generate learning summary + next bet hypothesis via Claude (single call).
   let learningSummary: string;
+  let nextBetHypothesis: string | null = null;
   try {
     const anthropic = new Anthropic();
     const specSection = specJson
@@ -861,30 +863,43 @@ export async function completeBetSpec(
       : `## Bet Spec\nNo structured spec available.`;
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 300,
+      max_tokens: 500,
       messages: [
         {
           role: "user",
-          content: `You are a product learning synthesizer. Given a bet spec and an outcome note, generate a concise 2-3 sentence learning summary that captures:
-1. What actually happened vs. the hypothesis
-2. The key insight or root cause
-3. How this learning should influence the next bet
+          content: `You are a product learning synthesizer. Given a bet spec and an outcome note, respond with a JSON object containing exactly two fields:
+
+1. "learning_summary": A concise 2-3 sentence summary capturing what happened vs. the hypothesis, the key insight or root cause, and how this learning should influence future decisions.
+2. "next_bet_hypothesis": A single-sentence hypothesis for the next bet to run, derived from this learning. Format it as: "We believe [action] will [outcome] for [user segment]."
 
 ${specSection}
 
 ## Outcome Note
 ${outcomeNote}
 
-Respond with only the learning summary — no headers, no bullet points, just 2-3 sentences of clear insight.`,
+Respond with only valid JSON — no markdown, no explanation.`,
         },
       ],
     });
 
     const block = msg.content[0];
-    learningSummary =
-      block && block.type === "text"
-        ? block.text.trim()
-        : "Learning recorded. See outcome note for details.";
+    if (block && block.type === "text") {
+      try {
+        const parsed = JSON.parse(block.text.trim()) as Record<string, unknown>;
+        learningSummary =
+          typeof parsed["learning_summary"] === "string"
+            ? parsed["learning_summary"]
+            : "Learning recorded. See outcome note for details.";
+        nextBetHypothesis =
+          typeof parsed["next_bet_hypothesis"] === "string"
+            ? parsed["next_bet_hypothesis"]
+            : null;
+      } catch {
+        learningSummary = block.text.trim();
+      }
+    } else {
+      learningSummary = "Learning recorded. See outcome note for details.";
+    }
   } catch {
     learningSummary = "Learning recorded. See outcome note for details.";
   }
@@ -896,6 +911,7 @@ Respond with only the learning summary — no headers, no bullet points, just 2-
       status: "completed",
       outcomeNote,
       learningSummary,
+      nextBetHypothesis,
       updatedAt: new Date(),
     })
     .where(eq(betSpecs.id, betSpecId));
@@ -910,5 +926,27 @@ Respond with only the learning summary — no headers, no bullet points, just 2-
     metadata: { outcomeNote: outcomeNote.slice(0, 200) },
   });
 
-  return { learningSummary };
+  // Write learning back to Context Pack asynchronously (fire-and-forget).
+  // We use the system actor to avoid attribution confusion.
+  if (learningSummary && learningSummary !== "Learning recorded. See outcome note for details.") {
+    const contextUpdate = [
+      `[Learning from bet: ${bet.title}]`,
+      learningSummary,
+      nextBetHypothesis ? `Proposed next bet: ${nextBetHypothesis}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    ingestContext({
+      workspaceId,
+      productId,
+      rawInput: contextUpdate,
+      tags: ["bet_completion", betSpecId],
+      createdBy: actorId,
+    }).catch(() => {
+      // Context Pack update is best-effort; never fail the completion response.
+    });
+  }
+
+  return { learningSummary, nextBetHypothesis };
 }

@@ -114,6 +114,18 @@ The system enables users to continuously convert product signals into better pro
   - Evening review (decision recap + unresolved questions)
   - Weekly retrospectives on bet accuracy
 
+### FR-SDL-007 Learning Synthesis Loop
+- When a bet is marked complete, the system shall:
+  1. Generate a structured learning summary from outcome data and conversation history.
+  2. Write the learning back into the Context Pack as a versioned update.
+  3. Propose at least one next bet hypothesis derived from the learning.
+- The learning → next bet path shall require no manual re-entry of context.
+
+### FR-SDL-008 Anomaly-to-Bet Impact API
+- The system shall expose an endpoint that, given an anomaly ID, returns the list of active bets whose hypotheses are likely affected.
+- The linkage rationale (metric layer, KPI affected, bet hypothesis text similarity) shall be included in the response.
+- The UI shall surface this linkage directly on the anomaly detail and on the affected bet cards.
+
 ## 4.4 AI Behavior Rules
 
 ### FR-AI-001 Clarification Gating
@@ -144,6 +156,18 @@ The system shall execute the following autonomous routines without user initiati
 | Activity anomaly | On Layer 3 anomaly, estimate Layer 2 KPI impact and link to relevant Layer 1 bets |
 | GitHub commit/PR | Detect diff and propose Living Spec updates for affected spec sections |
 
+### FR-AI-006 Scheduled Job Infrastructure
+- The system shall implement a persistent scheduler capable of triggering daily, nightly, and weekly jobs per workspace.
+- Scheduled jobs shall be retried on failure with exponential backoff up to a configurable max attempt count.
+- Job execution state (pending / running / succeeded / failed) shall be persisted and observable.
+- Each job type shall be independently toggleable per workspace.
+
+### FR-AI-007 Briefing Delivery
+- The system shall generate daily briefings by calling the Claude API with the current Context Pack and active bet list as grounding context.
+- Briefings shall be stored per workspace/product and retrievable via API.
+- The web app shall surface the latest briefing on the product overview page and notify the user on first daily load.
+- Briefing delivery shall degrade gracefully: if generation fails, the previous briefing is shown with a staleness indicator.
+
 ## 5. UX and Design Requirements
 
 ### FR-UX-001 Application Form
@@ -167,6 +191,32 @@ The system shall execute the following autonomous routines without user initiati
 - Font (Latin): DM Sans
 - Font (Japanese): Noto Sans JP
 - Brand color: `#1738BD`
+
+### FR-UX-006 Context Pack Page
+- The user shall be able to input product context in natural language and see the structured result.
+- Version history shall be displayed as a chronological list with restore action per entry.
+- Current structured context shall be displayed in a readable, non-editor format.
+
+### FR-UX-007 Decision Logs Page
+- The user shall be able to create a decision log entry with: title, decision, rationale, alternatives considered, evidence links.
+- Logs shall be displayed in reverse-chronological order with filtering by date and keyword.
+
+### FR-UX-008 Metrics Dashboard Page
+- The user shall be able to register metrics at each of the three layers (Bet / KPI / Activity).
+- The dashboard shall display time-series readings for each metric.
+- Detected anomalies shall be highlighted with their estimated KPI impact and affected bet links.
+- The user shall be able to resolve an anomaly directly from the dashboard.
+
+### FR-UX-009 GitHub Connection Page
+- The user shall be able to connect a GitHub repository with PAT authentication.
+- Connected repos shall display their sync status and last sync timestamp.
+- Living Spec update proposals (from commit diffs) shall be listed with Accept / Dismiss actions.
+- Sync event history shall be viewable per connection.
+
+### FR-UX-010 Product Overview Page
+- The product overview shall display: active bet count, latest briefing, recent anomalies, recent decision logs.
+- The latest daily briefing shall be shown on first daily load with a "mark as read" action.
+- Quick-action entry points to start a new bet and ingest context shall be present.
 
 ## 6. Integration Requirements
 
@@ -219,3 +269,33 @@ The system shall execute the following autonomous routines without user initiati
 4. Daily summary and retrospective flows run successfully for active projects.
 5. Activity anomaly is mapped to KPI and linked to at least one relevant Bet.
 6. Mobile browser completion of primary flows is validated.
+
+### Additional Acceptance Criteria (Gap Closure)
+
+7. **Learning Loop**: Completing a bet triggers automatic learning synthesis, Context Pack update, and at least one next-bet proposal without user re-entry.
+8. **Scheduled Briefings**: Morning briefing job runs successfully for every active workspace and is accessible via the product overview page.
+9. **Frontend Completeness**: Context Pack, Decision Logs, Metrics, and GitHub pages are fully interactive (no stub pages at launch).
+10. **Anomaly-to-Bet linkage**: Detected anomalies display affected bets with rationale on the metrics dashboard.
+11. **Living Spec UI**: GitHub-triggered spec proposals are displayable and actionable (Accept / Dismiss) in the GitHub page.
+12. **Cost visibility**: AI usage cost per workspace is visible in settings.
+
+## 10. Implementation Gap Register
+
+Current codebase status as of March 2026. Tracks delta between spec and shipped code.
+
+| Gap ID | Area | Description | Priority |
+|---|---|---|---|
+| GAP-001 | Backend | `getDailyBriefing()` has no Claude call — briefing generation is a stub | P0 |
+| GAP-002 | Backend | No scheduled job infrastructure (no cron/queue for morning/evening/weekly jobs) | P0 |
+| GAP-003 | Backend | Bet completion does not trigger learning synthesis or Context Pack update | P0 |
+| GAP-004 | Backend | No endpoint returning bets affected by a given anomaly | P1 |
+| GAP-005 | Backend | Next-bet recommendation engine missing | P1 |
+| GAP-006 | Frontend | Context Pack page is a stub — no input, versioning, or restore UI | P0 |
+| GAP-007 | Frontend | Metrics dashboard page is a stub — no chart, anomaly, or 3-layer view | P0 |
+| GAP-008 | Frontend | GitHub page is a stub — no OAuth, repo select, sync events, or proposal UI | P0 |
+| GAP-009 | Frontend | Decision Logs page is a stub — no create form or list view | P1 |
+| GAP-010 | Frontend | Product overview page has no dashboard content | P1 |
+| GAP-011 | Frontend | No in-app briefing surface or notification | P1 |
+| GAP-012 | Frontend | Living Spec proposal Accept/Dismiss UI missing | P1 |
+| GAP-013 | Testing | Zero frontend component tests | P2 |
+| GAP-014 | Testing | No E2E tests across module boundaries | P2 |

@@ -3,9 +3,11 @@
 // GET  /api/v1/workspaces/:workspaceId/products/:productId/context-pack
 // GET  /api/v1/workspaces/:workspaceId/products/:productId/context-pack/versions
 // POST /api/v1/workspaces/:workspaceId/products/:productId/context-pack/restore
+// POST /api/v1/workspaces/:workspaceId/products/:productId/context-pack/compress
 
 import { apiError, createApp } from "./middleware.js";
 import {
+  compressContext,
   getCurrentContext,
   getContextVersions,
   ingestContext,
@@ -214,6 +216,57 @@ app.post(`${BASE}/context-pack/restore`, async (c) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Restore failed.";
     return apiError(c, 500, "restore_error", message);
+  }
+});
+
+// POST .../context-pack/compress
+app.post(`${BASE}/context-pack/compress`, async (c) => {
+  const { workspaceId, productId } = c.req.param();
+  const actorId = c.get("actorId");
+  const requestId = c.get("requestId");
+
+  let body: unknown = {};
+  try {
+    const raw = await c.req.text();
+    if (raw.length > 0) body = JSON.parse(raw) as unknown;
+  } catch {
+    return apiError(c, 400, "invalid_json", "Request body must be valid JSON.");
+  }
+
+  const b = body as Record<string, unknown>;
+  const aggressiveness = b["aggressiveness"];
+  if (
+    aggressiveness !== undefined &&
+    (typeof aggressiveness !== "number" || aggressiveness < 0 || aggressiveness > 1)
+  ) {
+    return apiError(c, 422, "invalid_payload", '"aggressiveness" must be a number between 0 and 1.');
+  }
+
+  try {
+    const result = await compressContext({
+      workspaceId,
+      productId,
+      createdBy: actorId,
+      requestId,
+      ...(typeof aggressiveness === "number" ? { aggressiveness } : {}),
+    });
+    if (!result) {
+      return apiError(c, 404, "context_pack_not_found", "No context pack found to compress.", { workspaceId, productId });
+    }
+    return c.json({
+      version_id: result.versionId,
+      version: result.versionNumber,
+      context_pack_id: result.contextPackId,
+      compression_ratio: result.compressionRatio,
+      provider: result.provider,
+      model: result.model,
+      latency_ms: result.latencyMs,
+      fallback_used: result.fallbackUsed,
+      created_at: result.createdAt,
+    }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Compression failed.";
+    return apiError(c, 500, "compress_error", message);
   }
 });
 
