@@ -264,6 +264,13 @@ export GITHUB_TOKEN_ENCRYPTION_KEY=replace-with-32-byte-random-string
 
 # API auth for /api/* endpoints (optional locally)
 export PROZEN_API_KEY=your-local-api-key
+
+# Optional GitHub sync queue tuning
+export GITHUB_SYNC_WORKER_INTERVAL_MS=5000
+export GITHUB_SYNC_WORKER_BATCH=10
+export GITHUB_SYNC_MAX_RETRIES=5
+export GITHUB_SYNC_BASE_RETRY_MS=2000
+export GITHUB_SYNC_PROCESSING_STALE_MS=300000
 ```
 
 ### Migrate & Run

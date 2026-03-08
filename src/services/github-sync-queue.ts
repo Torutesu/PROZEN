@@ -1,5 +1,5 @@
-import { and, asc, eq, inArray, isNull, lte, or } from "drizzle-orm";
-import { getDb } from "../db/client.js";
+import { eq } from "drizzle-orm";
+import { getDb, getSqlClient } from "../db/client.js";
 import { betSpecVersions, githubConnections, githubSyncEvents } from "../db/schema.js";
 import {
   analyzeDiffAgainstBetSpecs,
@@ -16,8 +16,35 @@ const DEFAULT_BATCH_SIZE = Number(process.env["GITHUB_SYNC_WORKER_BATCH"] ?? 10)
 const DEFAULT_INTERVAL_MS = Number(process.env["GITHUB_SYNC_WORKER_INTERVAL_MS"] ?? 5000);
 const DEFAULT_MAX_RETRIES = Number(process.env["GITHUB_SYNC_MAX_RETRIES"] ?? 5);
 const DEFAULT_BASE_RETRY_MS = Number(process.env["GITHUB_SYNC_BASE_RETRY_MS"] ?? 2000);
+const DEFAULT_PROCESSING_STALE_MS = Number(process.env["GITHUB_SYNC_PROCESSING_STALE_MS"] ?? 300000);
 
 let draining = false;
+
+type QueueEvent = typeof githubSyncEvents.$inferSelect;
+
+export interface GitHubSyncQueueStats {
+  claimed: number;
+  reclaimedStale: number;
+  analyzed: number;
+  skipped: number;
+  failed: number;
+  retried: number;
+  deadLettered: number;
+}
+
+const queueStats: GitHubSyncQueueStats = {
+  claimed: 0,
+  reclaimedStale: 0,
+  analyzed: 0,
+  skipped: 0,
+  failed: 0,
+  retried: 0,
+  deadLettered: 0,
+};
+
+function queueLog(event: string, meta: Record<string, unknown>): void {
+  process.stdout.write(`[github-sync-queue] ${event} ${JSON.stringify(meta)}\n`);
+}
 
 function computeNextAttempt(failureCount: number, now: Date): Date {
   const exponent = Math.max(0, Math.min(failureCount - 1, 8));
@@ -26,7 +53,7 @@ function computeNextAttempt(failureCount: number, now: Date): Date {
 }
 
 function extractCommitSha(
-  event: typeof githubSyncEvents.$inferSelect,
+  event: QueueEvent,
   payload: Record<string, unknown> | null,
 ): string | null {
   if (event.commitSha) return event.commitSha;
@@ -34,45 +61,75 @@ function extractCommitSha(
   return typeof pushPayload?.after === "string" ? pushPayload.after : null;
 }
 
-async function claimNextDueEvent(): Promise<typeof githubSyncEvents.$inferSelect | null> {
+async function loadEventById(id: string): Promise<QueueEvent | null> {
   const db = getDb();
+  const row = (
+    await db
+      .select()
+      .from(githubSyncEvents)
+      .where(eq(githubSyncEvents.id, id))
+      .limit(1)
+  )[0];
+  return row ?? null;
+}
+
+async function claimNextDueEvent(): Promise<QueueEvent | null> {
+  const sql = getSqlClient();
   const now = new Date();
-  const candidateStatuses = ["pending", "failed"] as const;
+  const staleBefore = new Date(now.getTime() - DEFAULT_PROCESSING_STALE_MS);
 
-  const due = await db
-    .select()
-    .from(githubSyncEvents)
-    .where(
-      and(
-        inArray(githubSyncEvents.status, candidateStatuses),
-        or(
-          isNull(githubSyncEvents.nextAttemptAt),
-          lte(githubSyncEvents.nextAttemptAt, now),
-        ),
-      ),
-    )
-    .orderBy(asc(githubSyncEvents.createdAt))
-    .limit(Math.max(1, DEFAULT_BATCH_SIZE));
-
-  for (const row of due) {
-    const claimed = await db
-      .update(githubSyncEvents)
-      .set({
-        status: "processing",
-        processingStartedAt: now,
-        lastError: null,
-      })
-      .where(
-        and(
-          eq(githubSyncEvents.id, row.id),
-          inArray(githubSyncEvents.status, candidateStatuses),
-        ),
+  const claimed = await sql<{ id: string; previous_status: string }[]>`
+    WITH candidate AS (
+      SELECT id, status AS previous_status
+      FROM github_sync_events
+      WHERE (
+        (
+          status IN ('pending', 'failed')
+          AND (next_attempt_at IS NULL OR next_attempt_at <= ${now.toISOString()}::timestamptz)
+        )
+        OR (
+          status = 'processing'
+          AND processing_started_at IS NOT NULL
+          AND processing_started_at <= ${staleBefore.toISOString()}::timestamptz
+        )
       )
-      .returning();
-    if (claimed.length > 0) return claimed[0]!;
+      ORDER BY next_attempt_at NULLS FIRST, created_at ASC
+      FOR UPDATE SKIP LOCKED
+      LIMIT 1
+    )
+    UPDATE github_sync_events AS e
+    SET
+      status = 'processing',
+      processing_started_at = ${now.toISOString()}::timestamptz,
+      last_error = CASE
+        WHEN candidate.previous_status = 'processing'
+          THEN COALESCE(e.last_error || '; ', '') || 'stale_processing_reclaimed'
+        ELSE e.last_error
+      END
+    FROM candidate
+    WHERE e.id = candidate.id
+    RETURNING e.id, candidate.previous_status
+  `;
+
+  if (claimed.length === 0) {
+    return null;
   }
 
-  return null;
+  const first = claimed[0]!;
+  const event = await loadEventById(first.id);
+  if (!event) {
+    return null;
+  }
+
+  queueStats.claimed += 1;
+  if (first.previous_status === "processing") {
+    queueStats.reclaimedStale += 1;
+    queueLog("reclaimed_stale_processing", {
+      event_id: first.id,
+      stale_ms: DEFAULT_PROCESSING_STALE_MS,
+    });
+  }
+  return event;
 }
 
 async function loadSpecsWithData(
@@ -114,15 +171,22 @@ async function loadSpecsWithData(
 }
 
 async function markFailed(
-  event: typeof githubSyncEvents.$inferSelect,
+  event: QueueEvent,
   error: unknown,
 ): Promise<void> {
   const db = getDb();
   const now = new Date();
   const retryCount = (event.retryCount ?? 0) + 1;
   const message = error instanceof Error ? error.message : String(error);
+  queueStats.failed += 1;
 
   if (retryCount >= DEFAULT_MAX_RETRIES) {
+    queueStats.deadLettered += 1;
+    queueLog("failed_permanently", {
+      event_id: event.id,
+      retry_count: retryCount,
+      error: message,
+    });
     await db
       .update(githubSyncEvents)
       .set({
@@ -137,19 +201,27 @@ async function markFailed(
     return;
   }
 
+  const nextAttempt = computeNextAttempt(retryCount, now);
+  queueStats.retried += 1;
+  queueLog("scheduled_retry", {
+    event_id: event.id,
+    retry_count: retryCount,
+    next_attempt_at: nextAttempt.toISOString(),
+    error: message,
+  });
   await db
     .update(githubSyncEvents)
     .set({
       status: "failed",
       retryCount,
       lastError: message,
-      nextAttemptAt: computeNextAttempt(retryCount, now),
+      nextAttemptAt: nextAttempt,
       processingStartedAt: null,
     })
     .where(eq(githubSyncEvents.id, event.id));
 }
 
-async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect): Promise<void> {
+async function processClaimedEvent(event: QueueEvent): Promise<void> {
   const db = getDb();
   const now = new Date();
 
@@ -162,6 +234,7 @@ async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect):
   )[0];
 
   if (!connection || !connection.isActive) {
+    queueStats.skipped += 1;
     await db
       .update(githubSyncEvents)
       .set({
@@ -171,6 +244,7 @@ async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect):
         processedAt: now,
       })
       .where(eq(githubSyncEvents.id, event.id));
+    queueLog("skipped_inactive_connection", { event_id: event.id });
     return;
   }
 
@@ -194,6 +268,7 @@ async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect):
     } else if (event.eventType === "pull_request") {
       const prPayload = payload as unknown as GitHubPRPayload;
       if (!["opened", "synchronize", "reopened"].includes(prPayload.action)) {
+        queueStats.skipped += 1;
         await db
           .update(githubSyncEvents)
           .set({
@@ -202,6 +277,7 @@ async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect):
             processedAt: now,
           })
           .where(eq(githubSyncEvents.id, event.id));
+        queueLog("skipped_pr_action", { event_id: event.id, action: prPayload.action });
         return;
       }
 
@@ -216,6 +292,7 @@ async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect):
       eventDescription = `PR #${prNumber}: ${prTitle}`;
       diffText = await fetchPRDiff(diffUrl, accessToken);
     } else {
+      queueStats.skipped += 1;
       await db
         .update(githubSyncEvents)
         .set({
@@ -224,6 +301,7 @@ async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect):
           processedAt: now,
         })
         .where(eq(githubSyncEvents.id, event.id));
+      queueLog("skipped_event_type", { event_id: event.id, event_type: event.eventType });
       return;
     }
 
@@ -244,6 +322,13 @@ async function processClaimedEvent(event: typeof githubSyncEvents.$inferSelect):
         processedAt: now,
       })
       .where(eq(githubSyncEvents.id, event.id));
+    queueStats.analyzed += 1;
+    queueLog("analyzed", {
+      event_id: event.id,
+      event_type: event.eventType,
+      repository: event.repository,
+      retry_count: event.retryCount ?? 0,
+    });
   } catch (err) {
     await markFailed(event, err);
   }
@@ -260,6 +345,9 @@ export async function drainGitHubSyncQueue(maxEvents = DEFAULT_BATCH_SIZE): Prom
       if (!event) break;
       await processClaimedEvent(event);
       processed += 1;
+    }
+    if (processed > 0) {
+      queueLog("drain_complete", { processed });
     }
     return processed;
   } finally {
@@ -280,4 +368,19 @@ export function startGitHubSyncQueueWorker(): () => void {
   void drainGitHubSyncQueue();
 
   return () => clearInterval(timer);
+}
+
+export function getGitHubSyncQueueStats(): GitHubSyncQueueStats {
+  return { ...queueStats };
+}
+
+export function resetGitHubSyncQueueStatsForTest(): void {
+  queueStats.claimed = 0;
+  queueStats.reclaimedStale = 0;
+  queueStats.analyzed = 0;
+  queueStats.skipped = 0;
+  queueStats.failed = 0;
+  queueStats.retried = 0;
+  queueStats.deadLettered = 0;
+  draining = false;
 }

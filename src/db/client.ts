@@ -20,6 +20,14 @@ export function getDb() {
   return _db;
 }
 
+export function getSqlClient() {
+  if (!_sql) {
+    _sql = postgres(requireDatabaseUrl());
+    _db = drizzle(_sql, { schema });
+  }
+  return _sql;
+}
+
 export async function closeDb(): Promise<void> {
   if (_sql) {
     await _sql.end();
