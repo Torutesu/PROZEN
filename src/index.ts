@@ -142,6 +142,7 @@ serve({ fetch: app.fetch, hostname: host, port }, () => {
   );
   process.stdout.write(`  GET  /api/v1/workspaces\n`);
   process.stdout.write(`  POST /api/v1/workspaces\n`);
+  process.stdout.write(`  POST /api/v1/workspaces/onboarding/setup\n`);
   process.stdout.write(`  GET  /api/v1/workspaces/:wid\n`);
   process.stdout.write(`  GET  /api/v1/workspaces/:wid/products\n`);
   process.stdout.write(`  POST /api/v1/workspaces/:wid/products\n`);
