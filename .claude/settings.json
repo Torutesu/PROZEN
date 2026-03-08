@@ -25,7 +25,15 @@
       "Bash(brew services list)",
       "Bash(node -e \"const { Client } = require\\(''pg''\\); const c = new Client\\({connectionString:''postgresql://localhost:5432/prozen''}\\); c.connect\\(\\).then\\(\\(\\) => c.query\\(''SELECT tablename FROM pg_tables WHERE schemaname=\\\\''public\\\\''''\\).then\\(r => { console.log\\(r.rows\\); c.end\\(\\); }\\)\\).catch\\(e => { console.error\\(e.message\\); c.end\\(\\); }\\);\")",
       "Bash(node --env-file=.env -e \":*)",
-      "Bash(curl -s -X POST http://127.0.0.1:8787/api/v1/workspaces/onboarding/setup -H \"Content-Type: application/json\" -d '{\"\"productName\"\":\"\"test\"\",\"\"skipFirstBet\"\":true}')"
+      "Bash(curl -s -X POST http://127.0.0.1:8787/api/v1/workspaces/onboarding/setup -H \"Content-Type: application/json\" -d '{\"\"productName\"\":\"\"test\"\",\"\"skipFirstBet\"\":true}')",
+      "Bash(pkill -f \"next-server\")",
+      "Bash(pkill -f \"next dev\")",
+      "Read(//private/tmp/**)",
+      "Read(//Users/torutano/PROZEN/PROZEN/web/**)",
+      "Bash(npx vitest run src/api/review-routes.test.ts)",
+      "Bash(grep -n \"TODO\\\\|placeholder\\\\|FIXME\" /Users/torutano/PROZEN/PROZEN/web/src/app/\\\\\\(app\\\\\\)/workspaces/[workspaceId]/products/[productId]/bets/page.tsx)",
+      "Bash(grep -r \"review\" /Users/torutano/PROZEN/PROZEN/src/api/*.ts)",
+      "Bash(xargs basename -a)"
     ]
   }
 }

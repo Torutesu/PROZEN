@@ -29,7 +29,14 @@ export default function ProductOverviewPage({ params }: Props) {
   const [decisions, setDecisions] = useState<DecisionLog[]>([]);
   const [briefing, setBriefing] = useState<DailyBriefingRecord | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(true);
+  const [eveningReview, setEveningReview] = useState<ProductReviewRecord | null>(null);
+  const [weeklyRetro, setWeeklyRetro] = useState<ProductReviewRecord | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Show evening review after 18:00 local time; weekly retro on Sundays
+  const nowHour = new Date().getHours();
+  const isEvening = nowHour >= 18;
+  const isSunday = new Date().getDay() === 0;
 
   const base = `/workspaces/${workspaceId}/products/${productId}`;
 
@@ -57,6 +64,18 @@ export default function ProductOverviewPage({ params }: Props) {
       } catch { /* briefing is best-effort */ } finally {
         setBriefingLoading(false);
       }
+
+      // Load periodic reviews (best-effort, non-blocking)
+      try {
+        const token = await getToken();
+        const rApi = reviewApi(workspaceId, productId, token);
+        const [er, wr] = await Promise.allSettled([
+          rApi.getEveningReview(),
+          rApi.getWeeklyRetro(),
+        ]);
+        if (er.status === "fulfilled") setEveningReview(er.value);
+        if (wr.status === "fulfilled") setWeeklyRetro(wr.value);
+      } catch { /* reviews are best-effort */ }
     }
     void load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,6 +161,44 @@ export default function ProductOverviewPage({ params }: Props) {
               <DecisionRow key={d.id} decision={d} />
             ))}
           </OverviewCard>
+        </div>
+      )}
+
+      {/* Evening Review */}
+      {isEvening && eveningReview && (
+        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-orange-400" />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+              Evening Review
+            </p>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {new Date(eveningReview.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed">{eveningReview.content}</p>
+        </div>
+      )}
+
+      {/* Weekly Retro */}
+      {isSunday && weeklyRetro && (
+        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-purple-400" />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+              Weekly Retro
+            </p>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {weeklyRetro.reviewDate}
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed">{weeklyRetro.content}</p>
+          {typeof weeklyRetro.metadata["betsCompleted"] === "number" && (
+            <p className="text-xs text-muted-foreground">
+              {weeklyRetro.metadata["betsCompleted"]} bet(s) completed ·{" "}
+              {weeklyRetro.metadata["betsActive"] ?? 0} active
+            </p>
+          )}
         </div>
       )}
 
