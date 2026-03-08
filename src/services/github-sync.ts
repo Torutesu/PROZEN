@@ -256,3 +256,30 @@ export async function registerGitHubWebhook(
   const data = (await res.json()) as { id: number };
   return String(data.id);
 }
+
+// ---------------------------------------------------------------------------
+// Delete webhook on GitHub repo
+// ---------------------------------------------------------------------------
+
+export async function deleteGitHubWebhook(
+  repository: string,
+  webhookId: string,
+  accessToken: string,
+): Promise<void> {
+  const res = await fetch(`https://api.github.com/repos/${repository}/hooks/${webhookId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "PROZEN/1.0",
+    },
+  });
+
+  // Already removed (or never existed) should be treated as success for cleanup.
+  if (res.status === 404) return;
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to delete webhook: ${res.status} ${body}`);
+  }
+}

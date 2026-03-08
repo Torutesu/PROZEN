@@ -36,8 +36,13 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
         "utf-8",
       );
       process.stdout.write(`[migrate] Running: ${file}\n`);
-      await sql.unsafe(migration);
-      await sql`INSERT INTO schema_migrations (name) VALUES (${file})`;
+      await sql.begin(async (tx) => {
+        await tx.unsafe(migration);
+        await tx.unsafe(
+          "INSERT INTO schema_migrations (name) VALUES ($1)",
+          [file],
+        );
+      });
     }
 
     process.stdout.write("[migrate] All migrations complete.\n");

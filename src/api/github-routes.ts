@@ -15,6 +15,7 @@ import {
   fetchPRDiff,
   analyzeDiffAgainstBetSpecs,
   registerGitHubWebhook,
+  deleteGitHubWebhook,
   type GitHubPushPayload,
   type GitHubPRPayload,
   type BetSpecSummary,
@@ -135,6 +136,11 @@ app.post("/api/v1/github/webhook", async (c) => {
   // Process async — respond 200 immediately, process in background
   const processEvent = async () => {
     try {
+      await db
+        .update(githubSyncEvents)
+        .set({ status: "processing" })
+        .where(eq(githubSyncEvents.id, eventId));
+
       let diffText = "";
       let analysis = null;
       let ref: string | undefined;
@@ -308,6 +314,21 @@ app.post(`${BASE}/github-connections`, async (c) => {
   const repository = b["repository"].trim();
   const accessToken = b["accessToken"].trim();
   const webhookUrl = b["webhookUrl"].trim();
+
+  const db = getDb();
+  const existingConnection = (
+    await db
+      .select()
+      .from(githubConnections)
+      .where(
+        and(
+          eq(githubConnections.workspaceId, workspaceId),
+          eq(githubConnections.productId, productId),
+        ),
+      )
+      .limit(1)
+  )[0];
+
   let encryptedAccessToken: string;
 
   try {
@@ -330,7 +351,6 @@ app.post(`${BASE}/github-connections`, async (c) => {
     return apiError(c, 502, "github_error", message);
   }
 
-  const db = getDb();
   const connectionId = `ghc_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
   const now = new Date();
 
@@ -363,6 +383,25 @@ app.post(`${BASE}/github-connections`, async (c) => {
       })
       .returning();
 
+    // Cleanup previous webhook when reconnecting/repointing a product connection.
+    if (
+      existingConnection?.webhookId &&
+      existingConnection.webhookId !== webhookId &&
+      existingConnection.repository
+    ) {
+      try {
+        const oldToken = decryptSecret(existingConnection.accessToken);
+        await deleteGitHubWebhook(
+          existingConnection.repository,
+          existingConnection.webhookId,
+          oldToken,
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[github] old webhook cleanup failed: ${message}\n`);
+      }
+    }
+
     return c.json(
       {
         connection_id: row!.id,
@@ -373,6 +412,14 @@ app.post(`${BASE}/github-connections`, async (c) => {
       201,
     );
   } catch (err) {
+    // Best effort cleanup so we do not leave an orphan webhook if DB write fails.
+    try {
+      await deleteGitHubWebhook(repository, webhookId, accessToken);
+    } catch (cleanupErr) {
+      const cleanupMessage = cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr);
+      process.stderr.write(`[github] rollback webhook cleanup failed: ${cleanupMessage}\n`);
+    }
+
     const message = err instanceof Error ? err.message : "Failed to save connection.";
     return apiError(c, 500, "create_error", message);
   }
@@ -449,12 +496,29 @@ app.delete(`${BASE}/github-connections`, async (c) => {
     return apiError(c, 404, "not_found", "No GitHub connection found for this product.");
   }
 
+  let webhookCleanup: "deleted" | "failed" | "skipped" = "skipped";
+  if (connection.webhookId) {
+    try {
+      const resolvedAccessToken = decryptSecret(connection.accessToken);
+      await deleteGitHubWebhook(connection.repository, connection.webhookId, resolvedAccessToken);
+      webhookCleanup = "deleted";
+    } catch (err) {
+      webhookCleanup = "failed";
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[github] disconnect webhook cleanup failed: ${message}\n`);
+    }
+  }
+
   await db
     .update(githubConnections)
-    .set({ isActive: false, updatedAt: new Date() })
+    .set({ isActive: false, webhookId: null, updatedAt: new Date() })
     .where(eq(githubConnections.id, connection.id));
 
-  return c.json({ disconnected: true, connection_id: connection.id });
+  return c.json({
+    disconnected: true,
+    connection_id: connection.id,
+    webhook_cleanup: webhookCleanup,
+  });
 });
 
 // ---------------------------------------------------------------------------
