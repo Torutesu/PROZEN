@@ -14,6 +14,7 @@ import decisionLogRoutes from "./api/decision-log-routes.js";
 import specRoutes from "./api/spec-routes.js";
 import metricRoutes from "./api/metric-routes.js";
 import githubRoutes from "./api/github-routes.js";
+import workspaceRoutes from "./api/workspace-routes.js";
 
 const host = "127.0.0.1";
 const port = Number(process.env["PORT"] ?? 8787);
@@ -22,7 +23,8 @@ const app = createApp();
 
 // Global middleware
 app.use("*", requestIdMiddleware);
-app.use("/api/*", authMiddleware);
+// Auth applies to user-facing APIs. GitHub webhook uses HMAC signature verification instead.
+app.use("/api/v1/workspaces/*", authMiddleware);
 
 // Health
 app.get("/healthz", (c) =>
@@ -60,6 +62,9 @@ app.route("/", metricRoutes);
 
 // M4 API routes
 app.route("/", githubRoutes);
+
+// M5 API routes
+app.route("/", workspaceRoutes);
 
 // Fallback
 app.notFound((c) =>
@@ -135,6 +140,12 @@ serve({ fetch: app.fetch, hostname: host, port }, () => {
   process.stdout.write(
     `  GET  /api/v1/workspaces/:wid/audit-events?productId=&limit=&offset=\n`,
   );
+  process.stdout.write(`  GET  /api/v1/workspaces\n`);
+  process.stdout.write(`  POST /api/v1/workspaces\n`);
+  process.stdout.write(`  GET  /api/v1/workspaces/:wid\n`);
+  process.stdout.write(`  GET  /api/v1/workspaces/:wid/products\n`);
+  process.stdout.write(`  POST /api/v1/workspaces/:wid/products\n`);
+  process.stdout.write(`  PATCH /api/v1/workspaces/:wid/products/:pid\n`);
   process.stdout.write(`  POST /api/v1/github/webhook\n`);
   process.stdout.write(
     `  POST /api/v1/workspaces/:wid/products/:pid/github-connections\n`,
