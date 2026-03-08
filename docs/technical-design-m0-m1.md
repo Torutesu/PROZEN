@@ -135,6 +135,12 @@ Failure handling:
   - Prefer current full version
   - Fall back to compressed context for older ranges
 
+Forward-compatible provider plan:
+- Compression is implemented behind a provider interface.
+- Planned provider rollout uses The Token Company API in shadow mode first.
+- On provider failure/timeout, fallback uses internal deterministic compression.
+- Provider config and rollout details are tracked in `docs/compression-provider-token-company.md`.
+
 ## 7. Security and Compliance Baseline
 
 1. AuthN/AuthZ

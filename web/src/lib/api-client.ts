@@ -276,9 +276,16 @@ export interface BetSpecMeta {
   status: string;
   currentVersionId: string | null;
   conversationId: string | null;
+  outcomeNote: string | null;
+  learningSummary: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CompleteBetResponse {
+  ok: boolean;
+  learning_summary: string;
 }
 
 export interface ConversationMessage {
@@ -494,6 +501,12 @@ export function betApi(
       request(`${base}/bets/${betId}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
+        token,
+      }),
+    complete: (betId: string, outcomeNote: string) =>
+      request<CompleteBetResponse>(`${base}/bets/${betId}/complete`, {
+        method: "POST",
+        body: JSON.stringify({ outcomeNote }),
         token,
       }),
   };

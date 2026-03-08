@@ -1,0 +1,226 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState, use } from "react";
+import { useAuth } from "@clerk/nextjs";
+import {
+  betApi,
+  decisionLogApi,
+  metricApi,
+  type AnomalyRecord,
+  type BetSpecMeta,
+  type DecisionLog,
+} from "@/lib/api-client";
+
+interface Props {
+  params: Promise<{ workspaceId: string; productId: string }>;
+}
+
+export default function ProductOverviewPage({ params }: Props) {
+  const { workspaceId, productId } = use(params);
+  const { getToken } = useAuth();
+
+  const [bets, setBets] = useState<BetSpecMeta[]>([]);
+  const [anomalies, setAnomalies] = useState<AnomalyRecord[]>([]);
+  const [decisions, setDecisions] = useState<DecisionLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const base = `/workspaces/${workspaceId}/products/${productId}`;
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const token = await getToken();
+        const [betsRes, anomaliesRes, decisionsRes] = await Promise.allSettled([
+          betApi(workspaceId, productId, token).list(10),
+          metricApi(workspaceId, productId, token).getAnomalies(),
+          decisionLogApi(workspaceId, productId, token).list(3),
+        ]);
+        if (betsRes.status === "fulfilled") setBets(betsRes.value.items);
+        if (anomaliesRes.status === "fulfilled") setAnomalies(anomaliesRes.value.items);
+        if (decisionsRes.status === "fulfilled") setDecisions(decisionsRes.value.items);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId, productId]);
+
+  const activeBets = bets.filter((b) => b.status === "active" || b.status === "draft");
+  const completedBets = bets.filter((b) => b.status === "completed");
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Product snapshot — bets, signals, and recent decisions at a glance.
+        </p>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Active Bets */}
+          <OverviewCard
+            title="Active Bets"
+            count={activeBets.length}
+            href={`${base}/bets`}
+            linkLabel="View all bets"
+            empty="No active bets. Start a new bet to track your next initiative."
+          >
+            {activeBets.slice(0, 3).map((bet) => (
+              <BetRow key={bet.id} bet={bet} base={base} />
+            ))}
+          </OverviewCard>
+
+          {/* Open Anomalies */}
+          <OverviewCard
+            title="Open Anomalies"
+            count={anomalies.length}
+            href={`${base}/metrics`}
+            linkLabel="View metrics"
+            empty="No open anomalies. Metrics look healthy."
+            countColor={anomalies.length > 0 ? "text-destructive" : undefined}
+          >
+            {anomalies.slice(0, 3).map((a) => (
+              <AnomalyRow key={a.id} anomaly={a} />
+            ))}
+          </OverviewCard>
+
+          {/* Recent Decisions */}
+          <OverviewCard
+            title="Recent Decisions"
+            count={decisions.length}
+            href={`${base}/decision-logs`}
+            linkLabel="View all decisions"
+            empty="No decisions logged yet."
+          >
+            {decisions.slice(0, 3).map((d) => (
+              <DecisionRow key={d.id} decision={d} />
+            ))}
+          </OverviewCard>
+        </div>
+      )}
+
+      {/* Completed bets learning feed */}
+      {completedBets.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+            Recent Learnings
+          </h2>
+          <div className="space-y-3">
+            {completedBets.slice(0, 3).map((bet) => (
+              <div key={bet.id} className="rounded-xl border border-border bg-card p-4 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full font-medium">
+                    completed
+                  </span>
+                  <p className="text-sm font-medium">{bet.title}</p>
+                </div>
+                {bet.learningSummary && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {bet.learningSummary}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          <Link
+            href={`${base}/bets`}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            View all bets →
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function OverviewCard({
+  title,
+  count,
+  href,
+  linkLabel,
+  empty,
+  countColor,
+  children,
+}: {
+  title: string;
+  count: number;
+  href: string;
+  linkLabel: string;
+  empty: string;
+  countColor?: string;
+  children: React.ReactNode;
+}) {
+  const hasItems = count > 0;
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-semibold text-sm">{title}</h2>
+        <span className={`text-2xl font-bold tabular-nums ${countColor ?? "text-foreground"}`}>
+          {count}
+        </span>
+      </div>
+      {hasItems ? (
+        <div className="space-y-2">{children}</div>
+      ) : (
+        <p className="text-xs text-muted-foreground">{empty}</p>
+      )}
+      <Link href={href} className="block text-xs text-primary hover:underline">
+        {linkLabel} →
+      </Link>
+    </div>
+  );
+}
+
+function BetRow({ bet, base }: { bet: BetSpecMeta; base: string }) {
+  return (
+    <Link
+      href={`${base}/bets`}
+      className="block rounded-lg px-2 py-1.5 -mx-2 hover:bg-muted transition-colors"
+    >
+      <p className="text-sm truncate">{bet.title}</p>
+      <p className="text-xs text-muted-foreground capitalize">{bet.status}</p>
+    </Link>
+  );
+}
+
+function AnomalyRow({ anomaly }: { anomaly: AnomalyRecord }) {
+  const severity = anomaly.severity;
+  const dotColor =
+    severity === "high"
+      ? "bg-destructive"
+      : severity === "medium"
+        ? "bg-orange-500"
+        : "bg-yellow-500";
+  return (
+    <div className="flex items-start gap-2 py-1">
+      <span className={`mt-1.5 size-1.5 rounded-full shrink-0 ${dotColor}`} />
+      <div className="min-w-0">
+        <p className="text-sm truncate">{anomaly.metricName ?? anomaly.metricId}</p>
+        <p className="text-xs text-muted-foreground">
+          {anomaly.direction === "below_target" ? "Below" : "Above"} baseline
+          {anomaly.deviationPct !== null ? ` · ${Math.abs(anomaly.deviationPct)}%` : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DecisionRow({ decision }: { decision: DecisionLog }) {
+  return (
+    <div className="py-1">
+      <p className="text-sm truncate">{decision.title}</p>
+      <p className="text-xs text-muted-foreground truncate">{decision.decision}</p>
+    </div>
+  );
+}

@@ -15,6 +15,7 @@ Before implementation, align on contracts in these files:
 2. Context Pack schema: `schemas/context-pack.schema.json`
 3. Domain types: `src/domain/*.ts`
 4. DB structure: `db/migrations/*.sql`
+5. Compression provider contract: `docs/compression-provider-token-company.md`
 
 No implementation should silently diverge from these contracts.
 
@@ -71,4 +72,3 @@ When Codex and Claude touch the same concern:
 2. Decide canonical representation in one place only.
 3. Regenerate or refactor dependent implementation.
 4. Add a brief note to docs if semantics changed.
-

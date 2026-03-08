@@ -20,10 +20,29 @@ import {
   type BetSpecSummary,
 } from "../services/github-sync.js";
 import { getBetSpecs } from "../services/spec-store.js";
+import { getProductById, getWorkspaceById } from "../services/workspace-store.js";
 import { randomUUID } from "node:crypto";
 
 const app = createApp();
 const BASE = "/api/v1/workspaces/:workspaceId/products/:productId";
+
+async function ensureWorkspaceProductAccess(
+  actorId: string,
+  workspaceId: string,
+  productId: string,
+): Promise<{ ok: true } | { ok: false; status: 404; code: "not_found"; message: string }> {
+  const workspace = await getWorkspaceById(workspaceId, actorId);
+  if (!workspace) {
+    return { ok: false, status: 404, code: "not_found", message: "Workspace not found." };
+  }
+
+  const product = await getProductById(workspaceId, productId);
+  if (!product) {
+    return { ok: false, status: 404, code: "not_found", message: "Product not found." };
+  }
+
+  return { ok: true };
+}
 
 // ---------------------------------------------------------------------------
 // POST /api/v1/github/webhook — receive GitHub push/PR events
@@ -255,6 +274,11 @@ app.post(`${BASE}/github-connections`, async (c) => {
   const { workspaceId, productId } = c.req.param();
   const actorId = c.get("actorId");
 
+  const access = await ensureWorkspaceProductAccess(actorId, workspaceId, productId);
+  if (!access.ok) {
+    return apiError(c, access.status, access.code, access.message);
+  }
+
   let body: unknown;
   try {
     const raw = await c.req.text();
@@ -343,6 +367,11 @@ app.post(`${BASE}/github-connections`, async (c) => {
 // ---------------------------------------------------------------------------
 app.get(`${BASE}/github-connections`, async (c) => {
   const { workspaceId, productId } = c.req.param();
+  const actorId = c.get("actorId");
+  const access = await ensureWorkspaceProductAccess(actorId, workspaceId, productId);
+  if (!access.ok) {
+    return apiError(c, access.status, access.code, access.message);
+  }
   const db = getDb();
 
   const connection = (
@@ -380,6 +409,11 @@ app.get(`${BASE}/github-connections`, async (c) => {
 // ---------------------------------------------------------------------------
 app.delete(`${BASE}/github-connections`, async (c) => {
   const { workspaceId, productId } = c.req.param();
+  const actorId = c.get("actorId");
+  const access = await ensureWorkspaceProductAccess(actorId, workspaceId, productId);
+  if (!access.ok) {
+    return apiError(c, access.status, access.code, access.message);
+  }
   const db = getDb();
 
   const connection = (
@@ -412,8 +446,14 @@ app.delete(`${BASE}/github-connections`, async (c) => {
 // ---------------------------------------------------------------------------
 app.get(`${BASE}/github-sync-events`, async (c) => {
   const { workspaceId, productId } = c.req.param();
+  const actorId = c.get("actorId");
   const rawLimit = c.req.query("limit");
   const rawOffset = c.req.query("offset");
+
+  const access = await ensureWorkspaceProductAccess(actorId, workspaceId, productId);
+  if (!access.ok) {
+    return apiError(c, access.status, access.code, access.message);
+  }
 
   const parsedLimit = rawLimit === undefined ? 20 : Number(rawLimit);
   if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {

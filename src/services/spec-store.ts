@@ -1,5 +1,6 @@
 // Spec Store — DB-backed CRUD for Bet Specs, versions, and conversations.
 
+import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, max } from "drizzle-orm";
 import { getDb } from "../db/client.js";
@@ -801,4 +802,113 @@ export async function restoreBetSpec(
     newVersionNumber: result.newVersionNumber,
     restoredFromVersion: restoreToVersion,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Complete a bet — record outcome + generate AI learning summary
+// ---------------------------------------------------------------------------
+
+export interface CompleteBetSpecResult {
+  learningSummary: string;
+}
+
+export async function completeBetSpec(
+  workspaceId: string,
+  productId: string,
+  betSpecId: string,
+  outcomeNote: string,
+  actorId: string,
+  requestId?: string,
+): Promise<CompleteBetSpecResult | null> {
+  const db = getDb();
+
+  // Load the bet and its current spec version.
+  const bet = (
+    await db
+      .select()
+      .from(betSpecs)
+      .where(
+        and(
+          eq(betSpecs.id, betSpecId),
+          eq(betSpecs.workspaceId, workspaceId),
+          eq(betSpecs.productId, productId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!bet) return null;
+
+  let specJson: string | null = null;
+  if (bet.currentVersionId) {
+    const version = (
+      await db
+        .select()
+        .from(betSpecVersions)
+        .where(eq(betSpecVersions.id, bet.currentVersionId))
+        .limit(1)
+    )[0];
+    if (version) {
+      specJson = JSON.stringify(version.structuredPayload, null, 2);
+    }
+  }
+
+  // Generate learning summary via Claude.
+  let learningSummary: string;
+  try {
+    const anthropic = new Anthropic();
+    const specSection = specJson
+      ? `## Bet Spec\n\`\`\`json\n${specJson}\n\`\`\``
+      : `## Bet Spec\nNo structured spec available.`;
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 300,
+      messages: [
+        {
+          role: "user",
+          content: `You are a product learning synthesizer. Given a bet spec and an outcome note, generate a concise 2-3 sentence learning summary that captures:
+1. What actually happened vs. the hypothesis
+2. The key insight or root cause
+3. How this learning should influence the next bet
+
+${specSection}
+
+## Outcome Note
+${outcomeNote}
+
+Respond with only the learning summary — no headers, no bullet points, just 2-3 sentences of clear insight.`,
+        },
+      ],
+    });
+
+    const block = msg.content[0];
+    learningSummary =
+      block && block.type === "text"
+        ? block.text.trim()
+        : "Learning recorded. See outcome note for details.";
+  } catch {
+    learningSummary = "Learning recorded. See outcome note for details.";
+  }
+
+  // Persist outcome + learning and mark completed.
+  await db
+    .update(betSpecs)
+    .set({
+      status: "completed",
+      outcomeNote,
+      learningSummary,
+      updatedAt: new Date(),
+    })
+    .where(eq(betSpecs.id, betSpecId));
+
+  await emitAuditEvent({
+    workspaceId,
+    actorId,
+    eventType: "bet_spec.completed",
+    resourceType: "bet_spec",
+    resourceId: betSpecId,
+    requestId,
+    metadata: { outcomeNote: outcomeNote.slice(0, 200) },
+  });
+
+  return { learningSummary };
 }

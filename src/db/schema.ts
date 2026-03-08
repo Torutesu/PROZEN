@@ -176,6 +176,8 @@ export const betSpecs = pgTable("bet_specs", {
   currentVersionId: text("current_version_id"),
   // conversationId has a deferred FK to spec_conversations (circular ref).
   conversationId: text("conversation_id"),
+  outcomeNote: text("outcome_note"),
+  learningSummary: text("learning_summary"),
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

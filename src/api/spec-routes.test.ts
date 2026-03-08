@@ -15,6 +15,7 @@ const {
   updateBetSpecStatusMock,
   sendMessageMock,
   restoreBetSpecMock,
+  completeBetSpecMock,
 } = vi.hoisted(() => ({
   createBetSpecMock: vi.fn(),
   getBetSpecsMock: vi.fn(),
@@ -24,6 +25,7 @@ const {
   updateBetSpecStatusMock: vi.fn(),
   sendMessageMock: vi.fn(),
   restoreBetSpecMock: vi.fn(),
+  completeBetSpecMock: vi.fn(),
 }));
 
 // Stub out spec-store to avoid DB connections in unit tests.
@@ -44,6 +46,9 @@ vi.mock("../services/spec-store.js", () => ({
   updateBetSpecStatus: updateBetSpecStatusMock.mockResolvedValue(false),
   sendMessage: sendMessageMock.mockResolvedValue(null),
   restoreBetSpec: restoreBetSpecMock.mockResolvedValue(null),
+  completeBetSpec: completeBetSpecMock.mockResolvedValue({
+    learningSummary: "Guest checkout mattered more than UI polish.",
+  }),
 }));
 
 const BASE = "/api/v1/workspaces/ws1/products/p1";
@@ -134,6 +139,39 @@ describe("POST /bets/:betId/messages validation", () => {
         productId: "p1",
         betSpecId: "bet_notfound",
       }),
+    );
+  });
+});
+
+describe("POST /bets/:betId/complete", () => {
+  it("returns 422 when outcomeNote is missing", async () => {
+    const app = buildApp();
+    const res = await app.request(`${BASE}/bets/bet_abc/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 200 with learning summary", async () => {
+    const app = buildApp();
+    const res = await app.request(`${BASE}/bets/bet_abc/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outcomeNote: "Conversion improved only for mobile cohort." }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body["ok"]).toBe(true);
+    expect(body["learning_summary"]).toBeTruthy();
+    expect(completeBetSpecMock).toHaveBeenCalledWith(
+      "ws1",
+      "p1",
+      "bet_abc",
+      "Conversion improved only for mobile cohort.",
+      "test_user",
+      expect.any(String),
     );
   });
 });

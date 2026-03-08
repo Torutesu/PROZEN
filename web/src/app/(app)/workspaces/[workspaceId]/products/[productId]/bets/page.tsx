@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, use } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { betApi, type BetSpecMeta, type ConversationMessage } from "@/lib/api-client";
+import { betApi, type BetSpecMeta, type ConversationMessage, type CompleteBetResponse } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 interface Props {

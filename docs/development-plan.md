@@ -39,7 +39,7 @@ Reference date: March 2026
 | 1-2 | M0 | Architecture decisions, domain model, service contracts, analytics baseline |
 | 3-5 | M1 | Context Pack ingestion, decision logs, versioning and restore |
 | 6-8 | M2 | Conversation-as-Spec pipeline, Bet Spec schema, spec version history |
-| 9-11 | M3 | Metric layer model, anomaly detection baseline, reconciliation engine |
+| 9-11 | M3 | Metric layer model, anomaly detection baseline, reconciliation engine, production compression rollout |
 | 12-13 | M4 | GitHub diff integration, cross-module workflows, daily/weekly automation |
 | 14-16 | M5 | Hardening, mobile UX validation, observability, launch checklist |
 
@@ -95,6 +95,10 @@ Reference date: March 2026
 - Metrics are visible in all three layers.
 - Layer-3 anomaly triggers layer-2 impact estimate.
 - At least one automated next-bet recommendation is generated.
+- Context compression provider rollout is validated with:
+  - shadow mode quality checks
+  - canary release
+  - fallback reliability SLOs
 
 ## M4 Exit
 - GitHub diff generates spec update suggestions.
@@ -138,4 +142,3 @@ Reference date: March 2026
 2. Finalize data contracts between Context, Spec, and Signal modules.
 3. Build clickable onboarding prototype and validate with target users.
 4. Start M1 implementation with versioned context storage and decision logs.
-

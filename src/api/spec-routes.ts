@@ -7,9 +7,11 @@
 // GET    /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/conversation
 // GET    /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/versions
 // POST   /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/restore
+// POST   /api/v1/workspaces/:workspaceId/products/:productId/bets/:betId/complete
 
 import { apiError, createApp } from "./middleware.js";
 import {
+  completeBetSpec,
   createBetSpec,
   getBetSpecById,
   getBetSpecs,
@@ -290,6 +292,46 @@ app.post(`${BASE}/bets/:betId/restore`, async (c) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Restore failed.";
     return apiError(c, 500, "restore_error", message);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST .../bets/:betId/complete — record outcome + AI learning summary
+// ---------------------------------------------------------------------------
+app.post(`${BASE}/bets/:betId/complete`, async (c) => {
+  const { workspaceId, productId, betId } = c.req.param();
+  const actorId = c.get("actorId");
+  const requestId = c.get("requestId");
+
+  let body: unknown;
+  try {
+    const raw = await c.req.text();
+    body = raw.length > 0 ? (JSON.parse(raw) as unknown) : {};
+  } catch {
+    return apiError(c, 400, "invalid_json", "Request body must be valid JSON.");
+  }
+
+  const b = body as Record<string, unknown>;
+  if (typeof b["outcomeNote"] !== "string" || b["outcomeNote"].trim().length === 0) {
+    return apiError(c, 422, "invalid_payload", '"outcomeNote" is required.');
+  }
+
+  try {
+    const result = await completeBetSpec(
+      workspaceId,
+      productId,
+      betId,
+      (b["outcomeNote"] as string).trim(),
+      actorId,
+      requestId,
+    );
+    if (!result) {
+      return apiError(c, 404, "bet_spec_not_found", "Bet spec not found.", { workspaceId, betId });
+    }
+    return c.json({ ok: true, learning_summary: result.learningSummary });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to complete bet.";
+    return apiError(c, 500, "complete_error", message);
   }
 });
 

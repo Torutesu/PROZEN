@@ -103,6 +103,7 @@ The onboarding trigger is **not** document generation. It is a demo — video or
 | Requirements Specification | `docs/requirements-spec.md` |
 | Development Plan | `docs/development-plan.md` |
 | M0-M1 Technical Design | `docs/technical-design-m0-m1.md` |
+| Compression Provider Plan | `docs/compression-provider-token-company.md` |
 | Bet Spec JSON Schema | `schemas/bet-spec.schema.json` |
 | Bet Spec TypeScript Model | `src/domain/bet-spec.ts` |
 
@@ -158,6 +159,13 @@ export PROZEN_API_KEY=your-local-api-key
 
 # Claude structuring key (if unset, ingest uses deterministic fallback parser)
 export ANTHROPIC_API_KEY=your-anthropic-api-key
+
+# Compression provider (planned for FR-CL-005 rollout; optional)
+export TOKEN_COMPANY_API_KEY=your-ttc-api-key
+export TOKEN_COMPANY_MODEL=bear-1.2
+export TOKEN_COMPANY_AGGRESSIVENESS=0.15
+export TOKEN_COMPANY_TIMEOUT_MS=2500
+export TOKEN_COMPANY_ENABLED=false
 ```
 
 ### Apply Migrations
@@ -237,6 +245,13 @@ Idempotency for `POST` endpoints:
 - Set `Idempotency-Key: <unique_key>`
 - Repeated requests with the same key and same payload return replayed response
 - Same key with different payload returns `409 IDEMPOTENCY_CONFLICT`
+
+### Context Compression Provider (Planned)
+
+For `FR-CL-005` (Context Compression), PROZEN is adopting **The Token Company** as an optional external compression provider behind a feature flag.  
+Implementation details and rollout policy are documented in:
+
+- `docs/compression-provider-token-company.md`
 
 ### Type Check and Build
 

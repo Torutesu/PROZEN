@@ -54,6 +54,10 @@ The system enables users to continuously convert product signals into better pro
 ### FR-CL-005 Context Compression
 - The system shall summarize historical context for token/cost optimization.
 - The system shall preserve retrieval quality for active decisions.
+- Compression architecture shall support provider abstraction (internal and external providers).
+- External provider usage shall remain optional and reversible via configuration.
+- When external compression fails or times out, the system shall fall back to an internal deterministic compressor.
+- Compression output shall preserve protected entities and IDs required for downstream retrieval and linking.
 
 ## 4.2 Module B: Spec Agent
 
@@ -190,6 +194,7 @@ The system shall execute the following autonomous routines without user initiati
 ### NFR-005 Cost Transparency
 - The system shall expose AI/API usage and cost dashboards per user.
 - The system shall provide configurable spending limits.
+- Compression provider usage, savings estimate, and fallback rate shall be observable per workspace.
 
 ### NFR-006 Data Portability
 - Users shall be able to export Context Pack, specs, and decision logs.
@@ -214,4 +219,3 @@ The system shall execute the following autonomous routines without user initiati
 4. Daily summary and retrospective flows run successfully for active projects.
 5. Activity anomaly is mapped to KPI and linked to at least one relevant Bet.
 6. Mobile browser completion of primary flows is validated.
-
