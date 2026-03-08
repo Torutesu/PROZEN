@@ -1,0 +1,67 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "PROZEN" [ref=e5] [cursor=pointer]:
+          - /url: /workspaces
+        - navigation [ref=e6]:
+          - link "Overview" [ref=e7] [cursor=pointer]:
+            - /url: /workspaces/ws-e2e/products/p-e2e
+          - link "Bets" [ref=e8] [cursor=pointer]:
+            - /url: /workspaces/ws-e2e/products/p-e2e/bets
+          - link "Metrics" [ref=e9] [cursor=pointer]:
+            - /url: /workspaces/ws-e2e/products/p-e2e/metrics
+          - link "Decision Log" [ref=e10] [cursor=pointer]:
+            - /url: /workspaces/ws-e2e/products/p-e2e/decision-logs
+          - link "Context Pack" [ref=e11] [cursor=pointer]:
+            - /url: /workspaces/ws-e2e/products/p-e2e/context-pack
+          - link "GitHub" [ref=e12] [cursor=pointer]:
+            - /url: /workspaces/ws-e2e/products/p-e2e/github
+          - link "Settings" [ref=e13] [cursor=pointer]:
+            - /url: /workspaces/ws-e2e/products/p-e2e/settings
+        - generic [ref=e14]:
+          - button "Sign in" [ref=e15]
+          - button "Sign up" [ref=e16]
+    - main [ref=e17]:
+      - generic [ref=e18]:
+        - heading "Bets" [level=1] [ref=e19]
+        - generic [ref=e20]: Failed to fetch
+        - generic [ref=e21]:
+          - button "← Back to bets" [ref=e22]
+          - generic [ref=e23]:
+            - generic [ref=e24]:
+              - generic [ref=e25]: Bet title *
+              - textbox "e.g. Simplify onboarding to improve activation" [ref=e26]: E2E Test Bet
+            - generic [ref=e27]:
+              - generic [ref=e28]: Describe your bet idea *
+              - textbox "What problem are you solving? Who for? What outcome do you expect?" [ref=e29]: We believe simplifying the checkout will improve conversion rate by 5%
+            - generic [ref=e30]:
+              - button "Start Spec Conversation" [ref=e31]
+              - button "Cancel" [ref=e32]
+  - button "Open Next.js Dev Tools" [ref=e38] [cursor=pointer]:
+    - generic [ref=e41]:
+      - text: Rendering
+      - generic [ref=e42]:
+        - generic [ref=e43]: .
+        - generic [ref=e44]: .
+        - generic [ref=e45]: .
+  - alert [ref=e46]
+  - generic [ref=e47]:
+    - button "Keyless prompt" [expanded] [ref=e48] [cursor=pointer]:
+      - img [ref=e49]
+      - generic [ref=e53]: Configure your application
+      - img [ref=e54]
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - paragraph [ref=e59]: Temporary API keys are enabled so you can get started immediately.
+        - list [ref=e60]:
+          - listitem [ref=e61]: Add SSO connections (eg. GitHub)
+          - listitem [ref=e62]: Set up B2B authentication
+          - listitem [ref=e63]: Enable MFA
+        - paragraph [ref=e64]: Access the dashboard to customize auth settings and explore Clerk features.
+      - link "Configure your application" [ref=e65] [cursor=pointer]:
+        - /url: https://dashboard.clerk.com/apps/claim?framework=nextjs&token=s7azykhkwxthm348pakh02eoym09v71dp2kckhli&return_url=http%3A%2F%2Flocalhost%3A3100%2Fworkspaces%2Fws-e2e%2Fproducts%2Fp-e2e%2Fbets
+```
