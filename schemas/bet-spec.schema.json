@@ -1,0 +1,510 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prozen.app/schemas/bet-spec.schema.json",
+  "title": "PROZEN Bet Spec",
+  "description": "Canonical schema for AI-native product betting specs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "betId",
+    "workspaceId",
+    "productId",
+    "title",
+    "status",
+    "priority",
+    "owner",
+    "hypothesis",
+    "problemStatement",
+    "userSegment",
+    "intent",
+    "constraints",
+    "expectedImpacts",
+    "scope",
+    "acceptanceCriteria",
+    "risks",
+    "assumptions",
+    "dependencies",
+    "instrumentationPlan",
+    "timeline",
+    "links",
+    "createdAt",
+    "createdBy",
+    "updatedAt",
+    "updatedBy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "betId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{3,64}$"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{3,64}$"
+    },
+    "productId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{3,64}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 180
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "completed", "cancelled"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "hypothesis": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 1200
+    },
+    "problemStatement": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 1200
+    },
+    "userSegment": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 240
+    },
+    "intent": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 600
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 600
+      }
+    },
+    "expectedImpacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/MetricTarget"
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inScope", "outOfScope"],
+      "properties": {
+        "inScope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 400
+          }
+        },
+        "outOfScope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 400
+          }
+        }
+      }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/AcceptanceCriterion"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RiskItem"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AssumptionItem"
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DependencyItem"
+      }
+    },
+    "instrumentationPlan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InstrumentationPlan"
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdDate", "targetDecisionDate", "reviewCadence"],
+      "properties": {
+        "createdDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "targetDecisionDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "targetReleaseDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "reviewCadence": {
+          "type": "string",
+          "enum": ["daily", "weekly", "biweekly", "monthly"]
+        }
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contextPackVersionId", "decisionLogIds"],
+      "properties": {
+        "contextPackVersionId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{3,64}$"
+        },
+        "decisionLogIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{3,64}$"
+          }
+        },
+        "github": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$"
+            },
+            "pullRequestNumbers": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "commitShas": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{7,40}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "outcomes": {
+      "$ref": "#/$defs/BetOutcome"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "createdBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    }
+  },
+  "$defs": {
+    "MetricTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metricId",
+        "metricName",
+        "layer",
+        "targetType",
+        "direction",
+        "baselineValue",
+        "targetValue",
+        "confidence",
+        "evaluationWindowDays"
+      ],
+      "properties": {
+        "metricId": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "metricName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "layer": {
+          "type": "string",
+          "enum": ["bet", "kpi", "activity"]
+        },
+        "targetType": {
+          "type": "string",
+          "enum": ["absolute", "relative"]
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["increase", "decrease"]
+        },
+        "baselineValue": {
+          "type": "number"
+        },
+        "targetValue": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evaluationWindowDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1200
+        }
+      }
+    },
+    "AcceptanceCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "priority",
+        "statement",
+        "verificationMethod",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^AC-[0-9]{1,4}$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "functional",
+            "non_functional",
+            "analytics",
+            "quality",
+            "security",
+            "ux"
+          ]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["p0", "p1", "p2"]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 1200
+        },
+        "verificationMethod": {
+          "type": "string",
+          "enum": ["manual", "automated", "observational"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "pass", "fail", "n_a"]
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "RiskItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^R-[0-9]{1,4}$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 1200
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "mitigation": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "AssumptionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "confidence"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^A-[0-9]{1,4}$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 1200
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "validationPlan": {
+          "type": "string",
+          "maxLength": 1200
+        }
+      }
+    },
+    "DependencyItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "kind", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^D-[0-9]{1,4}$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 1200
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["team", "tool", "data", "external"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "blocked"]
+        }
+      }
+    },
+    "InstrumentationPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventName", "description", "layer"],
+      "properties": {
+        "eventName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 1200
+        },
+        "layer": {
+          "type": "string",
+          "enum": ["bet", "kpi", "activity"]
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      }
+    },
+    "BetOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resultSummary", "actualImpacts", "learning"],
+      "properties": {
+        "resultSummary": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 1200
+        },
+        "actualImpacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/MetricTarget"
+          }
+        },
+        "learning": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 2000
+        },
+        "followUpBetIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{3,64}$"
+          }
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "1.0.0",
+  "betId": "bet_onboarding_001",
+  "workspaceId": "ws_select_001",
+  "productId": "prozen_web",
+  "title": "Shorten onboarding to improve day-7 retention",
+  "status": "active",
+  "priority": "high",
+  "owner": "founder@selectkk.com",
+  "hypothesis": "If we reduce onboarding completion time from 8 minutes to under 4 minutes, day-7 retention will increase.",
+  "problemStatement": "Users drop off during onboarding because setup requires too many fields and no immediate payoff is shown.",
+  "userSegment": "First-time solo founders in their first 14 days",
+  "intent": [
+    "Reduce onboarding friction",
+    "Help users reach first meaningful Bet Spec within 5 minutes"
+  ],
+  "constraints": [
+    "No new backend dependencies in this cycle",
+    "Must support mobile web from day one"
+  ],
+  "expectedImpacts": [
+    {
+      "metricId": "retention_day7",
+      "metricName": "Day-7 Retention",
+      "layer": "kpi",
+      "targetType": "relative",
+      "direction": "increase",
+      "baselineValue": 0.18,
+      "targetValue": 0.23,
+      "unit": "ratio",
+      "confidence": 0.7,
+      "evaluationWindowDays": 21,
+      "notes": "Expected uplift in first-time users"
+    },
+    {
+      "metricId": "onboarding_completion_time",
+      "metricName": "Onboarding Completion Time",
+      "layer": "activity",
+      "targetType": "absolute",
+      "direction": "decrease",
+      "baselineValue": 8,
+      "targetValue": 4,
+      "unit": "minutes",
+      "confidence": 0.8,
+      "evaluationWindowDays": 14
+    }
+  ],
+  "scope": {
+    "inScope": [
+      "Remove optional setup fields from initial flow",
+      "Add progress feedback and success checkpoint"
+    ],
+    "outOfScope": [
+      "Pricing page redesign",
+      "Team workspace onboarding"
+    ]
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "type": "functional",
+      "priority": "p0",
+      "statement": "A first-time user can reach the first Bet Spec draft in under 5 minutes.",
+      "verificationMethod": "automated",
+      "status": "pending",
+      "owner": "pm"
+    },
+    {
+      "id": "AC-2",
+      "type": "analytics",
+      "priority": "p0",
+      "statement": "Onboarding start and completion events are tracked for all sessions.",
+      "verificationMethod": "automated",
+      "status": "pending"
+    }
+  ],
+  "risks": [
+    {
+      "id": "R-1",
+      "statement": "Shorter onboarding might reduce context quality.",
+      "severity": "medium",
+      "mitigation": "Collect optional context after first value delivery."
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A-1",
+      "statement": "Most drop-off is caused by setup friction, not positioning mismatch.",
+      "confidence": "medium",
+      "validationPlan": "Interview users who abandon onboarding."
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "D-1",
+      "statement": "Frontend onboarding refactor slot in sprint calendar",
+      "kind": "team",
+      "status": "confirmed"
+    }
+  ],
+  "instrumentationPlan": [
+    {
+      "eventName": "onboarding_started",
+      "description": "Triggered when user starts setup",
+      "layer": "activity",
+      "owner": "data"
+    },
+    {
+      "eventName": "first_bet_spec_created",
+      "description": "Triggered when first draft Bet Spec is saved",
+      "layer": "bet",
+      "owner": "data"
+    }
+  ],
+  "timeline": {
+    "createdDate": "2026-03-08",
+    "targetDecisionDate": "2026-03-29",
+    "targetReleaseDate": "2026-04-05",
+    "reviewCadence": "weekly"
+  },
+  "links": {
+    "contextPackVersionId": "cpv_20260308_01",
+    "decisionLogIds": ["dlog_2201", "dlog_2202"],
+    "github": {
+      "repository": "selectkk/prozen",
+      "pullRequestNumbers": [12],
+      "commitShas": ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"]
+    }
+  },
+  "tags": ["onboarding", "retention", "phase1"],
+  "createdAt": "2026-03-08T10:00:00Z",
+  "createdBy": "founder@selectkk.com",
+  "updatedAt": "2026-03-08T10:00:00Z",
+  "updatedBy": "founder@selectkk.com"
+}
+

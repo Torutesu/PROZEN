@@ -1,0 +1,38 @@
+{
+  "name": "prozen",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PROZEN planning and core schema workspace",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && npm run start",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc --noEmit",
+    "migrate": "npm run build && node dist/src/db/migrate.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate:bet-spec": "npm run build && node dist/src/scripts/validate-bet-spec.js",
+    "validate:context-pack": "npm run build && node dist/src/scripts/validate-context-pack.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@hono/node-server": "^1.19.11",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.12.5",
+    "nanoid": "^5.1.6",
+    "postgres": "^3.4.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.6.0",
+    "drizzle-kit": "^0.31.9",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

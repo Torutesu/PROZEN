@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.0.0",
+  "contextPackId": "cp_prozen_web_001",
+  "workspaceId": "ws_select_001",
+  "productId": "prozen_web",
+  "version": 3,
+  "source": "ai_structured",
+  "summary": "Context snapshot after onboarding bet preparation and retention alignment.",
+  "sections": {
+    "productVision": [
+      {
+        "id": "VISION-1",
+        "statement": "Enable solo PMs to focus on decision quality, not document maintenance.",
+        "confidence": 0.95
+      }
+    ],
+    "targetUsers": [
+      {
+        "id": "USER-1",
+        "statement": "Non-engineer solopreneurs who own product direction and spending decisions.",
+        "confidence": 0.92
+      }
+    ],
+    "goals": [
+      {
+        "id": "GOAL-1",
+        "statement": "Users produce first valid Bet Spec in under 5 minutes."
+      },
+      {
+        "id": "GOAL-2",
+        "statement": "Users complete weekly retrospective with hypothesis-to-outcome linkage."
+      }
+    ],
+    "constraints": [
+      {
+        "id": "CONST-1",
+        "statement": "Phase 1 requires GitHub integration but avoids optional external integrations."
+      },
+      {
+        "id": "CONST-2",
+        "statement": "Mobile browser flow must support tap-complete key journeys."
+      }
+    ],
+    "kpiDefinitions": [
+      {
+        "metricId": "retention_day7",
+        "metricName": "Day-7 Retention",
+        "definition": "Share of users active on day 7 after first signup date.",
+        "cadence": "weekly",
+        "targetDirection": "increase"
+      },
+      {
+        "metricId": "mrr",
+        "metricName": "Monthly Recurring Revenue",
+        "definition": "Sum of active recurring subscriptions in the billing window.",
+        "cadence": "monthly",
+        "targetDirection": "increase"
+      }
+    ],
+    "glossary": [
+      {
+        "term": "Bet",
+        "definition": "A hypothesis-driven decision with explicit expected impact and constraints."
+      },
+      {
+        "term": "Context Pack",
+        "definition": "Versioned long-term memory used by agents for structured reasoning."
+      }
+    ],
+    "openQuestions": [
+      {
+        "id": "QUES-1",
+        "statement": "What confidence threshold should trigger mandatory clarification in Phase 1?",
+        "confidence": 0.6
+      }
+    ]
+  },
+  "decisionReferences": ["dlog_2201", "dlog_2202"],
+  "tags": ["phase1", "context-layer", "onboarding"],
+  "compression": {
+    "isCompressed": false
+  },
+  "createdAt": "2026-03-08T12:10:00Z",
+  "createdBy": "founder@selectkk.com"
+}
