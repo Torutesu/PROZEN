@@ -4,6 +4,7 @@
 
 import {
   boolean,
+  date,
   integer,
   jsonb,
   numeric,
@@ -320,4 +321,25 @@ export const githubSyncEvents = pgTable(
     processedAt: timestamp("processed_at", { withTimezone: true }),
   },
   (t) => [unique().on(t.connectionId, t.githubDeliveryId)],
+);
+
+// ---------------------------------------------------------------------------
+// M10 — Daily Briefing (0009_m10_daily_briefing.sql)
+// ---------------------------------------------------------------------------
+
+export const dailyBriefings = pgTable(
+  "daily_briefings",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: text("product_id").notNull(),
+    briefingDate: date("briefing_date").notNull(),
+    content: text("content").notNull(),
+    activeBets: integer("active_bets").notNull().default(0),
+    openAnomalies: integer("open_anomalies").notNull().default(0),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.productId, t.briefingDate)],
 );

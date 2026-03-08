@@ -15,6 +15,7 @@ import specRoutes from "./api/spec-routes.js";
 import metricRoutes from "./api/metric-routes.js";
 import githubRoutes from "./api/github-routes.js";
 import workspaceRoutes from "./api/workspace-routes.js";
+import briefingRoutes from "./api/briefing-routes.js";
 
 const host = "127.0.0.1";
 const port = Number(process.env["PORT"] ?? 8787);
@@ -65,6 +66,9 @@ app.route("/", githubRoutes);
 
 // M5 API routes
 app.route("/", workspaceRoutes);
+
+// M10 API routes
+app.route("/", briefingRoutes);
 
 // Fallback
 app.notFound((c) =>
