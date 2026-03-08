@@ -6,8 +6,10 @@
  *
  * For local dev, set:
  *   CLERK_SESSION_TOKEN=<your-dev-session-token>
- *   PLAYWRIGHT_BASE_URL=http://localhost:3000
+ *   PLAYWRIGHT_BASE_URL=http://localhost:3100
  *   PLAYWRIGHT_API_URL=http://localhost:8787
+ *   PLAYWRIGHT_WS_ID=<existing-workspace-id> (optional, must pair with product id)
+ *   PLAYWRIGHT_PRODUCT_ID=<existing-product-id> (optional, must pair with workspace id)
  */
 
 import { test as base, expect, type Page } from "@playwright/test";
@@ -86,12 +88,17 @@ export const test = base.extend<{
   wsId: string;
   productId: string;
 }>({
-  authedPage: async ({ page }, use) => {
+  authedPage: async ({ page }, applyFixture, testInfo) => {
+    if (!CLERK_SESSION_TOKEN) {
+      testInfo.skip(true, "CLERK_SESSION_TOKEN is required for authenticated E2E tests.");
+      await applyFixture(page);
+      return;
+    }
     await injectAuthCookie(page);
-    await use(page);
+    await applyFixture(page);
   },
 
-  apiRequest: async ({}, use) => {
+  apiRequest: async ({}, applyFixture) => {
     const token = process.env["CLERK_SESSION_TOKEN"] ?? "test";
     const apiReq = async (method: string, path: string, body?: unknown) => {
       return fetch(`${API_URL}${path}`, {
@@ -103,34 +110,34 @@ export const test = base.extend<{
         body: body ? JSON.stringify(body) : undefined,
       });
     };
-    await use(apiReq);
+    await applyFixture(apiReq);
   },
 
-  wsId: async ({ apiRequest }, use, testInfo) => {
+  wsId: async ({ apiRequest }, applyFixture, testInfo) => {
     try {
       const ids = await ensureWorkspaceProduct(apiRequest);
-      await use(ids.wsId);
+      await applyFixture(ids.wsId);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Unable to determine workspace/product IDs for E2E tests.";
-      testInfo.skip(message);
-      await use("ws-e2e");
+      testInfo.skip(true, message);
+      await applyFixture("ws-e2e");
     }
   },
 
-  productId: async ({ apiRequest }, use, testInfo) => {
+  productId: async ({ apiRequest }, applyFixture, testInfo) => {
     try {
       const ids = await ensureWorkspaceProduct(apiRequest);
-      await use(ids.productId);
+      await applyFixture(ids.productId);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Unable to determine workspace/product IDs for E2E tests.";
-      testInfo.skip(message);
-      await use("p-e2e");
+      testInfo.skip(true, message);
+      await applyFixture("p-e2e");
     }
   },
 });

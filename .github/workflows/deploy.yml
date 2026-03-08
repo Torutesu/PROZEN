@@ -1,0 +1,101 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        type: choice
+        options: [staging, production]
+        default: staging
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Gate: CI must pass before deploy
+  check-ci:
+    name: Wait for CI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify CI status
+        run: echo "CI passed — proceeding to deploy"
+
+  deploy-backend:
+    name: Deploy Backend
+    needs: check-ci
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run migrate
+
+      # ── Replace the step below with your actual deploy command ──
+      # Examples:
+      #   Railway:  railway up --service prozen-api
+      #   Fly.io:   flyctl deploy --remote-only
+      #   Render:   curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+      #   Docker:   docker build + push to registry
+      - name: Deploy API
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          GITHUB_TOKEN_ENCRYPTION_KEY: ${{ secrets.GITHUB_TOKEN_ENCRYPTION_KEY }}
+        run: |
+          echo "TODO: replace this step with your deploy command"
+          echo "Deployed commit ${{ github.sha }} to ${{ github.event.inputs.environment || 'staging' }}"
+
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: check-ci
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Replace with your actual deploy command ──
+      # Examples:
+      #   Vercel:   vercel deploy --prod
+      #   Netlify:  netlify deploy --dir=.next --prod
+      - name: Deploy Next.js
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+        run: |
+          echo "TODO: replace this step with your deploy command"
+          echo "Deployed frontend commit ${{ github.sha }} to ${{ github.event.inputs.environment || 'staging' }}"

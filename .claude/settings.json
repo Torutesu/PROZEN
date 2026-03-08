@@ -10,7 +10,22 @@
       "Bash(ls /Users/torutano/PROZEN/PROZEN/web/.env*)",
       "Bash(echo $ANTHROPIC_API_KEY)",
       "Bash(pnpm typecheck)",
-      "Bash(pnpm test)"
+      "Bash(pnpm test)",
+      "Bash(grep -n \"rate\\\\|limit\\\\|throttle\" /Users/torutano/PROZEN/PROZEN/src/api/*.ts)",
+      "Bash(grep -A 15 \"function verifyWebhookSignature\\\\|export.*verifyWebhookSignature\" /Users/torutano/PROZEN/PROZEN/src/services/*.ts)",
+      "Bash(grep -r \"max:\\\\|pool\\\\|connection\" /Users/torutano/PROZEN/PROZEN/src/db/*.ts)",
+      "Bash(xargs cat)",
+      "Read(//private/etc/**)",
+      "Bash(python3 -c \"import socket; print\\(socket.getservbyname\\(''opcon-xps''\\)\\)\")",
+      "Bash(ls /Users/torutano/PROZEN/PROZEN/web/src/app/\\\\\\(app\\\\\\)/)",
+      "Bash(curl -s -X POST http://localhost:3001/api/v1/workspaces/onboarding/setup -H \"Content-Type: application/json\" -d '{\"\"productName\"\":\"\"test\"\",\"\"skipFirstBet\"\":true}')",
+      "Bash(psql postgresql://localhost:5432/prozen -c \"\\\\dt\")",
+      "Bash(grep -n \"TODO\\\\|FIXME\\\\|placeholder\\\\|not implemented\\\\|coming soon\" /Users/torutano/PROZEN/PROZEN/src/services/*.ts /Users/torutano/PROZEN/PROZEN/src/api/*.ts)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(brew services list)",
+      "Bash(node -e \"const { Client } = require\\(''pg''\\); const c = new Client\\({connectionString:''postgresql://localhost:5432/prozen''}\\); c.connect\\(\\).then\\(\\(\\) => c.query\\(''SELECT tablename FROM pg_tables WHERE schemaname=\\\\''public\\\\''''\\).then\\(r => { console.log\\(r.rows\\); c.end\\(\\); }\\)\\).catch\\(e => { console.error\\(e.message\\); c.end\\(\\); }\\);\")",
+      "Bash(node --env-file=.env -e \":*)",
+      "Bash(curl -s -X POST http://127.0.0.1:8787/api/v1/workspaces/onboarding/setup -H \"Content-Type: application/json\" -d '{\"\"productName\"\":\"\"test\"\",\"\"skipFirstBet\"\":true}')"
     ]
   }
 }

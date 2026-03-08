@@ -12,9 +12,17 @@ function requireDatabaseUrl(): string {
 let _db: ReturnType<typeof drizzle> | null = null;
 let _sql: ReturnType<typeof postgres> | null = null;
 
+function createClient() {
+  return postgres(requireDatabaseUrl(), {
+    max: 10,           // max pool size
+    idle_timeout: 30,  // seconds before idle connection is closed
+    connect_timeout: 10, // seconds to wait for a new connection
+  });
+}
+
 export function getDb() {
   if (!_db) {
-    _sql = postgres(requireDatabaseUrl());
+    _sql = createClient();
     _db = drizzle(_sql, { schema });
   }
   return _db;
@@ -22,7 +30,7 @@ export function getDb() {
 
 export function getSqlClient() {
   if (!_sql) {
-    _sql = postgres(requireDatabaseUrl());
+    _sql = createClient();
     _db = drizzle(_sql, { schema });
   }
   return _sql;

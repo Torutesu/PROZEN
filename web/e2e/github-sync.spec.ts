@@ -100,7 +100,6 @@ test.describe("GitHub Living Spec", () => {
 
   test("accepting a Living Spec proposal updates proposal status", async ({
     authedPage: page,
-    apiRequest,
     wsId,
     productId,
   }) => {

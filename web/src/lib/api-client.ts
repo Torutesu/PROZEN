@@ -587,3 +587,32 @@ export function briefingApi(
     getToday: () => request<DailyBriefingRecord>(`${base}/daily-briefing`, { token }),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Reviews (evening_review, weekly_retro)
+// ---------------------------------------------------------------------------
+
+export interface ProductReviewRecord {
+  id: string;
+  workspaceId: string;
+  productId: string;
+  reviewType: string;
+  reviewDate: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  generatedAt: string;
+}
+
+export function reviewApi(
+  workspaceId: string,
+  productId: string,
+  token: string | null,
+) {
+  const base = `/api/v1/workspaces/${workspaceId}/products/${productId}`;
+  return {
+    getEveningReview: () =>
+      request<ProductReviewRecord>(`${base}/reviews/evening_review`, { token }),
+    getWeeklyRetro: () =>
+      request<ProductReviewRecord>(`${base}/reviews/weekly_retro`, { token }),
+  };
+}
