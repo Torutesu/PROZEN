@@ -22,6 +22,7 @@ import {
 import { getBetSpecs } from "../services/spec-store.js";
 import { getProductById, getWorkspaceById } from "../services/workspace-store.js";
 import { randomUUID } from "node:crypto";
+import { decryptSecret, encryptSecret } from "../services/secret-crypto.js";
 
 const app = createApp();
 const BASE = "/api/v1/workspaces/:workspaceId/products/:productId";
@@ -142,6 +143,8 @@ app.post("/api/v1/github/webhook", async (c) => {
       let prTitle: string | undefined;
       let eventDescription = "";
 
+      const resolvedAccessToken = decryptSecret(connection.accessToken);
+
       if (eventType === "push") {
         const pushPayload = payload as GitHubPushPayload;
         ref = pushPayload.ref;
@@ -152,7 +155,7 @@ app.post("/api/v1/github/webhook", async (c) => {
         eventDescription = `Push to ${pushPayload.ref} (commit: ${shortSha})`;
 
         try {
-          diffText = await fetchCommitDiff(repo, pushPayload.after, connection.accessToken);
+          diffText = await fetchCommitDiff(repo, pushPayload.after, resolvedAccessToken);
         } catch {
           diffText = "";
         }
@@ -174,7 +177,10 @@ app.post("/api/v1/github/webhook", async (c) => {
         eventDescription = `PR #${prPayload.number}: ${prPayload.pull_request.title}`;
 
         try {
-          diffText = await fetchPRDiff(prPayload.pull_request.diff_url, connection.accessToken);
+          diffText = await fetchPRDiff(
+            prPayload.pull_request.diff_url,
+            resolvedAccessToken,
+          );
         } catch {
           diffText = "";
         }
@@ -302,6 +308,16 @@ app.post(`${BASE}/github-connections`, async (c) => {
   const repository = b["repository"].trim();
   const accessToken = b["accessToken"].trim();
   const webhookUrl = b["webhookUrl"].trim();
+  let encryptedAccessToken: string;
+
+  try {
+    encryptedAccessToken = encryptSecret(accessToken);
+  } catch (err) {
+    const message = err instanceof Error
+      ? err.message
+      : "Token encryption failed.";
+    return apiError(c, 500, "config_error", message);
+  }
 
   // Generate a webhook secret
   const webhookSecret = randomUUID().replace(/-/g, "");
@@ -326,7 +342,7 @@ app.post(`${BASE}/github-connections`, async (c) => {
         workspaceId,
         productId,
         repository,
-        accessToken, // TODO M5: encrypt before storing
+        accessToken: encryptedAccessToken,
         webhookId,
         webhookSecret,
         isActive: true,
@@ -338,7 +354,7 @@ app.post(`${BASE}/github-connections`, async (c) => {
         target: [githubConnections.workspaceId, githubConnections.productId],
         set: {
           repository,
-          accessToken,
+          accessToken: encryptedAccessToken,
           webhookId,
           webhookSecret,
           isActive: true,

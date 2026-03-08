@@ -387,7 +387,7 @@ function MetricCard({
 
       {progress !== null && (
         <div className="space-y-1">
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div
               className="h-full rounded-full bg-primary transition-all"
               style={{ width: `${progress}%` }}

@@ -1,0 +1,28 @@
+<svg width="480" height="120" viewBox="0 0 480 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="480" height="120" fill="#0A0A0F"/>
+
+  <!-- Hexagon logo mark (scaled down from 64x64 to fit 80px height) -->
+  <!-- Scale factor: 80/64 = 1.25, offset x=20, y=20 -->
+  <!-- Row 3: 3 hexagons -->
+  <polygon points="33.75,85 41.25,90 48.75,85 48.75,75 41.25,70 33.75,75" fill="#3B5BDB" opacity="0.25"/>
+  <polygon points="51.25,85 58.75,90 66.25,85 66.25,75 58.75,70 51.25,75" fill="#3B5BDB" opacity="0.55"/>
+  <polygon points="68.75,85 76.25,90 83.75,85 83.75,75 76.25,70 68.75,75" fill="#3B5BDB" opacity="0.25"/>
+  <!-- Row 2: 2 hexagons -->
+  <polygon points="42.5,67.5 50,72.5 57.5,67.5 57.5,57.5 50,52.5 42.5,57.5" fill="#3B5BDB" opacity="0.6"/>
+  <polygon points="60,67.5 67.5,72.5 75,67.5 75,57.5 67.5,52.5 60,57.5" fill="#3B5BDB" opacity="0.6"/>
+  <!-- Row 1: 1 hexagon (top) -->
+  <polygon points="51.25,50 58.75,55 66.25,50 66.25,40 58.75,35 51.25,40" fill="#3B5BDB"/>
+
+  <!-- PROZEN wordmark -->
+  <text x="120" y="52" font-family="'DM Sans', 'Inter', system-ui, sans-serif" font-size="40" font-weight="700" fill="#F0F0FF" letter-spacing="-1">PROZEN</text>
+
+  <!-- Tagline -->
+  <text x="121" y="76" font-family="'DM Sans', 'Inter', system-ui, sans-serif" font-size="14" font-weight="400" fill="#8B8FA8" letter-spacing="0.5">Agentic PM OS</text>
+
+  <!-- Divider -->
+  <line x1="120" y1="88" x2="440" y2="88" stroke="#1E1E2E" stroke-width="1"/>
+
+  <!-- Sub tagline -->
+  <text x="121" y="108" font-family="'DM Sans', 'Inter', system-ui, sans-serif" font-size="12" font-weight="400" fill="#4B4F68">Stop shipping features. Start validating bets.</text>
+</svg>

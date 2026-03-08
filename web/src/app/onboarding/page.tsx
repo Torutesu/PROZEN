@@ -281,7 +281,6 @@ function StepProduct({
 
 function StepFirstBet({
   productName,
-  kpi,
   betIdea,
   setBetIdea,
   generating,
@@ -291,7 +290,6 @@ function StepFirstBet({
   onSkip,
 }: {
   productName: string;
-  kpi: string;
   betIdea: string;
   setBetIdea: (v: string) => void;
   generating: boolean;
@@ -609,7 +607,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Top progress bar */}
-      <div className="fixed top-0 left-0 right-0 h-0.5 bg-muted z-50">
+      <div className="fixed top-0 left-0 right-0 h-1 bg-muted z-50">
         <div
           className="h-full bg-primary transition-all duration-700 ease-out"
           style={{ width: `${(step / 4) * 100}%` }}
@@ -637,7 +635,6 @@ export default function OnboardingPage() {
         {step === 3 && (
           <StepFirstBet
             productName={productName}
-            kpi={kpi}
             betIdea={betIdea}
             setBetIdea={setBetIdea}
             generating={generating}

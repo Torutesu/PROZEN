@@ -1,261 +1,279 @@
-# PROZEN
+<div align="center">
 
-> **Agentic PM OS** — The environment where PMs can focus on making bets.
+<img src="assets/logo-banner.svg" alt="PROZEN — Agentic PM OS" width="480" />
 
-**Etymology**: Profit × Kaizen
+<br/>
 
-PROZEN removes the burden of writing specs from product managers — the same way Cursor removed the burden of writing code from engineers. What remains is the only thing that matters: deciding what to bet on.
+[![License: MIT](https://img.shields.io/badge/License-MIT-1738BD.svg?style=flat-square)](LICENSE)
+[![PRD Version](https://img.shields.io/badge/PRD-v1.3-3B5BDB.svg?style=flat-square)](docs/requirements-spec.md)
+[![Status](https://img.shields.io/badge/Status-Active%20Development-10B981.svg?style=flat-square)](#status)
+[![Powered by Claude](https://img.shields.io/badge/Powered%20by-Claude%20Sonnet-EF4444.svg?style=flat-square)](https://anthropic.com)
+[![Node](https://img.shields.io/badge/Node-%3E%3D20-F59E0B.svg?style=flat-square)](#local-setup)
 
-## Positioning
+<br/>
 
-| | |
-|---|---|
-| **Category** | AI-native Product Management Operating System |
-| **Tagline** | The environment where PMs focus on bets, not documents |
-| **Core analogy** | Cursor is for engineers. PROZEN is for PMs. |
-| **Core user** | Non-engineer solopreneur (owner · PM · decision maker) |
-| **Price (Solo Tier)** | `$99/month` |
-| **Key differentiator** | No engineering background required. AI-native. All-in-one. |
+**Cursor is for engineers. PROZEN is for PMs.**
 
-## Product Thesis
+*The environment where product managers stop writing documents and start making bets.*
+
+</div>
+
+---
+
+## The Problem
+
+Most product tools are built around **documents** — PRDs that go stale the moment they're written, Jira boards that measure completions instead of outcomes, dashboards that show numbers but never connect them to your hypotheses.
+
+The result: PMs spend 80% of their time writing, tracking, and reporting — and 20% actually thinking about what to build.
+
+**PROZEN inverts that ratio.**
+
+---
+
+## What PROZEN Does
+
+> Within 5 minutes of first launch, you have a working Bet Spec for your own product — grounded in your actual metrics, with AI that surfaces risks you hadn't considered.
+
+PROZEN is a single, integrated loop:
 
 ```
-Engineer:  What to code  →  Cursor solves this
-PM:        What to build →  PROZEN solves this
+Context  →  Bet  →  Signal  →  Learning  →  Next Bet
 ```
 
-Static PRDs go stale the moment they're written. Jira tracks task completion but accumulates no learning. Dashboards show numbers but never speak to your hypotheses. PROZEN closes that gap with one continuous decision loop.
+No switching between Notion, Jira, Mixpanel, and Slack. One environment. One decision loop. Continuously improving.
 
-## Core Modules (Phase 1)
+---
 
-### Module A — Context Layer
-Long-term product memory. The equivalent of `@codebase` for product decisions.
+## Core Architecture
 
-- **Context Pack**: Natural language input → AI-structured product context
-- **Decision Log**: Records decisions, rationale, and discarded alternatives
-- **Versioning**: Full history of context changes with point-in-time restore
-- **Context Compression**: Efficiently summarizes historical context to optimize AI inference cost while maintaining retrieval quality
+<table>
+<tr>
+<td width="33%" valign="top">
 
-### Module B — Spec Agent
-A thinking partner that accelerates PM reasoning — not a document generator.
+### A · Context Layer
+*The product memory*
 
-- **Conversation-as-Spec**: Chat logs become structured spec artifacts
-- **Bet Spec Format**: AI-native format centered on intent + constraints + acceptance criteria
-- **Acceptance-First Workflow**: Define “done” before defining implementation
-- **Edge Case Assistance**: AI proactively surfaces overlooked boundary conditions
-- **Living Spec**: GitHub-connected; detects commit/PR diffs and proposes spec updates
-- **Spec Versioning**: Full revision history with rollback
+AI-structured product knowledge base. The equivalent of `@codebase` for product decisions — always available to every Bet, every signal, every recommendation.
 
-### Module C — Signal → Decision Loop
-From “looking at dashboards” to “dashboards that speak to your hypotheses.”
+- Natural language → structured context
+- Full versioning with point-in-time restore
+- Context compression for cost efficiency
 
-#### The Bet Structure
+</td>
+<td width="33%" valign="top">
+
+### B · Spec Agent
+*The thinking partner*
+
+Not a document generator. A reasoning accelerator. You describe intent; the AI surfaces constraints, edge cases, and acceptance criteria you'd otherwise miss.
+
+- Conversation-as-Spec workflow
+- Acceptance-first: define "done" before "how"
+- Living Spec: syncs with GitHub commits/PRs
+
+</td>
+<td width="33%" valign="top">
+
+### C · Signal Loop
+*The decision engine*
+
+Dashboards that speak to your hypotheses. Three-layer metric model connects daily activity signals to KPIs to active Bets — automatically.
+
+- Activity anomalies → KPI impact alerts
+- Daily/weekly AI briefings
+- Bet accuracy retrospectives
+
+</td>
+</tr>
+</table>
+
+---
+
+## The Bet Structure
+
+Every product decision in PROZEN follows one format:
+
 ```
-Hypothesis:  “Shortening onboarding will improve 7-day retention”
-Bet:         2 weeks of effort, targeting +5% KPI improvement
+Hypothesis:  "Shortening onboarding will improve 7-day retention"
+Bet:         2 weeks · targeting +5% KPI improvement
 Outcome:     +2.3% — the driver was Y, not X
-Learning:    Informs the next bet
+Learning:    Informs the next bet automatically
 ```
 
-#### 3-Layer Metric Model
+This structure — not tasks, not tickets, not documents — becomes the atom of all product work.
 
-| Layer | Scope | Examples | Cadence |
-|---|---|---|---|
-| **Bet** | Hypothesis-level | Onboarding → 7-day retention +5% | Sprint to quarter |
-| **KPI** | Product-level health | MRR, churn rate, NPS, retention | Weekly / monthly |
-| **Activity** | User behavior detail | DAU, PV, session length, funnel steps, error rate | Daily / real-time |
+### 3-Layer Metric Model
 
-Activity anomalies automatically trigger KPI impact estimation, which triggers hypothesis reconciliation against active Bets.
+| Layer | What It Tracks | Cadence |
+|---|---|---|
+| **Bet** | Hypothesis-level KPI targets | Sprint → Quarter |
+| **KPI** | Product health (MRR, churn, NPS) | Weekly / Monthly |
+| **Activity** | User behavior signals (DAU, funnel, errors) | Daily / Real-time |
 
-#### AI Autonomous Actions
+Layer 3 anomalies automatically trigger Layer 2 impact estimation, which triggers Layer 1 hypothesis reconciliation.
+
+---
+
+## AI Autonomous Actions
+
+PROZEN's agent operates continuously — not just when you open the app.
 
 | Trigger | Action |
 |---|---|
 | Every morning | Previous day summary + today's bet focus |
-| Every evening | Decision log review + unresolved questions for tomorrow |
-| Weekly | Auto-generated “bet accuracy” retrospective |
+| Every evening | Decision log review + open questions |
+| Weekly | Auto-generated bet accuracy retrospective |
 | Pre-release | Bet Spec completeness checklist |
-| Post-release | Metric change detection → hypothesis diff notification |
-| Activity anomaly | Layer 3 spike/drop → Layer 1 hypothesis impact alert |
+| Post-release | Metric change → hypothesis diff notification |
+| Activity anomaly | Layer 3 spike/drop → Layer 1 impact alert |
 | GitHub commit/PR | Diff detection → Living Spec update proposal |
 
-## What “WOW” Means
+---
 
-> Within 5 minutes of first launch, the user has a first draft of a usable Bet Spec for their own product.
+## Why Now
 
-The onboarding trigger is **not** document generation. It is a demo — video or interactive walkthrough — of a real product with actual traction: revenue growing, retention improving, learning compounding. That experience is what converts.
-
-## Design System
-
-| Element | Spec |
+| Signal | Implication |
 |---|---|
-| Spacing scale | Multiples of 4: 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96 px |
-| Font (Latin) | DM Sans |
-| Font (Japanese) | Noto Sans JP |
-| Brand color | `#1738BD` |
-| UI form | Application UI — not editor UI |
-| Mobile | Full functionality on iOS/Android browser |
+| LLM inference cost is dropping 10x/year | Always-on PM agents become economically viable |
+| Cursor proved AI-native dev tools | The same shift is coming for product |
+| Solo founders scaling without PMs | The ICP exists and is underserved |
+| PRD tooling hasn't changed in 10 years | Greenfield opportunity |
 
-## Repository Docs
+---
 
-| Document | Path |
+## Product Positioning
+
+| | |
 |---|---|
-| Requirements Specification | `docs/requirements-spec.md` |
-| Development Plan | `docs/development-plan.md` |
-| M0-M1 Technical Design | `docs/technical-design-m0-m1.md` |
-| Compression Provider Plan | `docs/compression-provider-token-company.md` |
-| Bet Spec JSON Schema | `schemas/bet-spec.schema.json` |
-| Bet Spec TypeScript Model | `src/domain/bet-spec.ts` |
+| **Category** | AI-native Product Management Operating System |
+| **Core analogy** | Cursor is for engineers. PROZEN is for PMs. |
+| **Target user** | Non-engineer solopreneur — owner, PM, decision maker |
+| **Price (Solo Tier)** | `$99/month` |
+| **Key differentiator** | No engineering background required. AI-native from day one. |
+| **Etymology** | Profit × Kaizen |
+
+---
 
 ## Roadmap
 
 | Phase | Scope | Gate |
 |---|---|---|
-| **Phase 1 — Web** | Core 3 modules for solo users. GitHub integration. | — |
-| **Phase 2 — Native** | iOS/Android native. Offline support. Richer push notifications. Claude Code / IDE integration (optional). | Traction validated by DAU and retention |
-| **Phase 3 — Integrations** | External tools (Figma, Linear, Mixpanel). Export flows. | Individual user base established |
-| **Phase 4 — Team/Enterprise** | Team PM features. SSO, audit logs, SOC2. | Enterprise inbound demand |
+| **Phase 1 — Web** | Core 3 modules for solo users · GitHub integration | — |
+| **Phase 2 — Native** | iOS/Android · Offline · Claude Code integration | DAU + retention validated |
+| **Phase 3 — Integrations** | Figma, Linear, Mixpanel · Export flows | Individual user base established |
+| **Phase 4 — Enterprise** | Team PM features · SSO · Audit logs · SOC2 | Enterprise inbound demand |
 
-## Anti-Patterns
+---
 
-| Prohibited | Reason |
+## Tech Stack
+
+| Layer | Technology |
 |---|---|
-| Editor-first UI | Drives away non-engineer users |
-| Excessive AI clarification | The primary source of friction — use confidence-score gating |
-| Static document generation as the goal | Recreates the limitations of PRDs |
-| Metrics disconnected from hypotheses | Becomes an inferior version of a dashboard tool |
-| External integrations in Phase 1 | Dilutes the all-in-one experience |
-| Team features in Phase 1 | Individual UX optimization must come first |
+| Frontend | Next.js 14 (App Router) · TypeScript · Tailwind CSS |
+| AI | Anthropic Claude Sonnet (claude-sonnet-4-6) |
+| State | Zustand |
+| Database | PostgreSQL 14+ |
+| Runtime | Node.js ≥ 20 |
+| Package Manager | pnpm |
 
-## Status
+---
 
-Active planning phase — PRD v1.3 (March 2026) · Select KK
+## Design Principles
 
-## Local Setup (Implementation Workspace)
+- **Application UI, not editor UI** — drives adoption with non-engineers
+- **4px spacing grid** — precision without overhead
+- **CSS Variables only** — consistent theming at scale
+- **Mobile-first** — full functionality on iOS/Android browser
+
+---
+
+## Repository
+
+| Document | Path |
+|---|---|
+| Requirements Specification | [`docs/requirements-spec.md`](docs/requirements-spec.md) |
+| Development Plan | [`docs/development-plan.md`](docs/development-plan.md) |
+| M0-M1 Technical Design | [`docs/technical-design-m0-m1.md`](docs/technical-design-m0-m1.md) |
+| Bet Spec JSON Schema | [`schemas/bet-spec.schema.json`](schemas/bet-spec.schema.json) |
+| Bet Spec TypeScript Model | [`src/domain/bet-spec.ts`](src/domain/bet-spec.ts) |
+
+---
+
+## Local Setup
 
 ### Prerequisites
 
 - Node.js `>= 20`
-- npm `>= 10`
-- PostgreSQL `>= 14` (required for M1 APIs)
+- pnpm `>= 9`
+- PostgreSQL `>= 14`
 
 ### Install
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Configure Environment
 
 ```bash
+# Required
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/prozen
-```
 
-Optional variables:
-
-```bash
-# API auth for /api/* endpoints (if unset, local auth is skipped)
-export PROZEN_API_KEY=your-local-api-key
-
-# Claude structuring key (if unset, ingest uses deterministic fallback parser)
+# Claude AI (required for spec generation and signal analysis)
 export ANTHROPIC_API_KEY=your-anthropic-api-key
 
-# Compression provider (planned for FR-CL-005 rollout; optional)
-export TOKEN_COMPANY_API_KEY=your-ttc-api-key
-export TOKEN_COMPANY_MODEL=bear-1.2
-export TOKEN_COMPANY_AGGRESSIVENESS=0.15
-export TOKEN_COMPANY_TIMEOUT_MS=2500
-export TOKEN_COMPANY_ENABLED=false
+# Required for GitHub PAT encryption at rest (M4 Living Spec)
+export GITHUB_TOKEN_ENCRYPTION_KEY=replace-with-32-byte-random-string
+
+# API auth for /api/* endpoints (optional locally)
+export PROZEN_API_KEY=your-local-api-key
 ```
 
-### Apply Migrations
+### Migrate & Run
 
 ```bash
-npm run migrate
+pnpm run migrate
+pnpm run dev
 ```
 
-### Run Local Runtime
+API base: `http://127.0.0.1:8787`
+
+### Run Web App (Next.js)
 
 ```bash
-npm run dev
+cd web
+pnpm install
+pnpm dev
 ```
 
-Local endpoints:
+Web base: `http://127.0.0.1:3000`
 
-- `GET /healthz` -> service health
-- `GET /schema/bet-spec` -> canonical Bet Spec schema
+| Endpoint | Description |
+|---|---|
+| `GET /healthz` | Service health |
+| `GET /schema/bet-spec` | Canonical Bet Spec schema |
+| `POST /api/v1/workspaces/:id/products/:id/context-pack/ingest` | Ingest product context |
+| `POST /api/v1/workspaces/:id/products/:id/decision-logs` | Record decision |
 
-Default URL: `http://127.0.0.1:8787`
-
-### Validate Bet Spec Against Schema
-
-Validate default example:
+### Validate Schemas
 
 ```bash
-npm run validate:bet-spec
+pnpm run validate:bet-spec
+pnpm run validate:context-pack
 ```
 
-Validate a custom file:
+---
 
-```bash
-npm run validate:bet-spec -- path/to/your-bet-spec.json
-```
+## Status
 
-### Validate Context Pack Against Schema
+**Active development** — PRD v1.3 · March 2026 · Select KK
 
-Validate default example:
+---
 
-```bash
-npm run validate:context-pack
-```
+<div align="center">
 
-Validate a custom file:
+<img src="assets/logo.svg" width="32" height="32" alt="PROZEN" />
 
-```bash
-npm run validate:context-pack -- path/to/your-context-pack.json
-```
+*Built for the PM who bets on outcomes, not the one who ships features.*
 
-### Context Layer Prototype API (M1)
-
-Base path:
-
-`/api/v1/workspaces/:workspaceId/products/:productId`
-
-Endpoints:
-
-- `POST /context-pack/ingest`
-- `GET /context-pack`
-- `GET /context-pack/versions`
-- `POST /context-pack/restore`
-- `POST /decision-logs`
-- `GET /decision-logs`
-- `GET /decision-logs/:decisionLogId`
-- `GET /api/v1/workspaces/:workspaceId/audit-events?productId=...&limit=...&offset=...`
-
-Example ingest request:
-
-```bash
-curl -X POST http://127.0.0.1:8787/api/v1/workspaces/ws_select_001/products/prozen_web/context-pack/ingest \
-  -H 'content-type: application/json' \
-  -d '{"input":"PROZEN helps solo PMs focus on bets.\nMain KPI is day-7 retention.\nConstraint: no editor-first UI.","tags":["onboarding","retention"]}'
-```
-
-Idempotency for `POST` endpoints:
-
-- Set `Idempotency-Key: <unique_key>`
-- Repeated requests with the same key and same payload return replayed response
-- Same key with different payload returns `409 IDEMPOTENCY_CONFLICT`
-
-### Context Compression Provider (Planned)
-
-For `FR-CL-005` (Context Compression), PROZEN is adopting **The Token Company** as an optional external compression provider behind a feature flag.  
-Implementation details and rollout policy are documented in:
-
-- `docs/compression-provider-token-company.md`
-
-### Type Check and Build
-
-```bash
-npm run typecheck
-npm run build
-```
+</div>

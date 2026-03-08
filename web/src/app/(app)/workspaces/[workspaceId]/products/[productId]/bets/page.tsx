@@ -21,6 +21,7 @@ export default function BetsPage({ params }: Props) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "completed">("all");
 
   // New bet form
   const [newTitle, setNewTitle] = useState("");
@@ -225,6 +226,30 @@ export default function BetsPage({ params }: Props) {
             </Button>
           </div>
 
+          {/* Status filter tabs */}
+          {bets.length > 0 && (
+            <div className="flex gap-1 border-b border-border pb-0">
+              {(["all", "active", "draft", "completed"] as const).map((s) => {
+                const count = s === "all" ? bets.length : bets.filter((b) => b.status === s).length;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
+                    className={cn(
+                      "px-3 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
+                      statusFilter === s
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                    <span className="ml-2 text-xs opacity-60">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : bets.length === 0 ? (
@@ -237,9 +262,13 @@ export default function BetsPage({ params }: Props) {
                 Create your first bet
               </Button>
             </div>
+          ) : (statusFilter !== "all" && bets.filter((b) => b.status === statusFilter).length === 0) ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No {statusFilter} bets.
+            </p>
           ) : (
             <div className="space-y-3">
-              {bets.map((bet) => (
+              {(statusFilter === "all" ? bets : bets.filter((b) => b.status === statusFilter)).map((bet) => (
                 <div
                   key={bet.id}
                   className="rounded-xl border border-border bg-card p-5 flex items-center justify-between gap-4"

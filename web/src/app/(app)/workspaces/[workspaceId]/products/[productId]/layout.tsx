@@ -13,7 +13,7 @@ export default function ProductLayout({ children, params }: Props) {
 
   const base = `/workspaces/${workspaceId}/products/${productId}`;
   const nav = [
-    { label: "Overview", href: base },
+    { label: "Overview", href: base, exact: true },
     { label: "Bets", href: `${base}/bets` },
     { label: "Metrics", href: `${base}/metrics` },
     { label: "Decision Log", href: `${base}/decision-logs` },

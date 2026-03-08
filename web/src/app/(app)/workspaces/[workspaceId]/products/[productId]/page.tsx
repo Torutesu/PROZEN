@@ -75,8 +75,8 @@ export default function ProductOverviewPage({ params }: Props) {
       {/* Today's Focus — Daily Briefing */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <span className="size-1.5 rounded-full bg-primary animate-pulse" />
-          <p className="text-xs font-medium text-primary uppercase tracking-widest">Today's Focus</p>
+          <span className="size-2 rounded-full bg-primary animate-pulse" />
+          <p className="text-xs font-medium text-primary uppercase tracking-widest">Today&apos;s Focus</p>
           <span className="text-xs text-muted-foreground ml-auto">{today}</span>
         </div>
         {briefingLoading ? (

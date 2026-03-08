@@ -12,7 +12,7 @@ interface Props {
 }
 
 const NAV_ITEMS = (wId: string, pId: string) => [
-  { label: "Context Pack", href: `/workspaces/${wId}/products/${pId}/context-pack` },
+  { label: "Overview", href: `/workspaces/${wId}/products/${pId}` },
   { label: "Bets", href: `/workspaces/${wId}/products/${pId}/bets` },
   { label: "Metrics", href: `/workspaces/${wId}/products/${pId}/metrics` },
   { label: "Decision Log", href: `/workspaces/${wId}/products/${pId}/decision-logs` },
@@ -49,7 +49,7 @@ export default function WorkspacePage({ params }: Props) {
         // Auto-redirect if exactly one active product
         const active = productsRes.value.items.filter((p) => p.status === "active");
         if (active.length === 1) {
-          router.replace(`/workspaces/${workspaceId}/products/${active[0]!.id}/bets`);
+          router.replace(`/workspaces/${workspaceId}/products/${active[0]!.id}`);
           return;
         }
         if (productsRes.value.items.length === 0) {

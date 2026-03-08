@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 interface NavItem {
   label: string;
   href: string;
+  exact?: boolean;
 }
 
 interface AppShellProps {
@@ -29,14 +30,14 @@ export function AppShell({ children, nav = [], title }: AppShellProps) {
           </Link>
 
           {nav.length > 0 && (
-            <nav className="flex items-center gap-1 flex-1">
+            <nav className="flex items-center gap-1 flex-1 overflow-x-auto scrollbar-none min-w-0">
               {nav.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                    pathname === item.href
+                    "px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap shrink-0",
+                    pathname === item.href || (!item.exact && pathname.startsWith(item.href + "/"))
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted",
                   )}
