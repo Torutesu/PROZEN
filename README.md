@@ -11,9 +11,9 @@
 
 <br/>
 
-**Cursor is for engineers. PROZEN is for PMs.**
+**The AI-native OS for product bets.**
 
-*Stop doing fake work. Start making bets.*
+*You didn't start this to write specs. You started this to make the right bet.*
 
 <br/>
 
@@ -334,6 +334,12 @@ pnpm run validate:context-pack
 <a href="#english"><kbd>&nbsp;EN&nbsp;</kbd></a>
 &nbsp;
 <a href="#日本語"><kbd>&nbsp;日本語&nbsp;</kbd></a>
+
+<br/>
+
+**仮説に賭けるための、AIネイティブOS。**
+
+*仕様書を書くためにこれを始めたんじゃない。正しいベットをするために始めた。*
 
 <br/>
 
