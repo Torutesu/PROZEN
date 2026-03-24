@@ -59,8 +59,25 @@ const mockAnomalies = [
   },
 ];
 
+const mockAffectedBets = {
+  anomalyId: "an-1",
+  metricId: "m1",
+  metricName: "Day-7 Retention",
+  affectedBets: [
+    {
+      betId: "bet-1",
+      title: "Improve onboarding activation",
+      status: "active",
+      linkageReason: "Metric Day-7 Retention is directly linked to this bet.",
+    },
+  ],
+};
+
 function mockFetch() {
   (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+    if (url.includes("/affected-bets")) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockAffectedBets) });
+    }
     if (url.includes("/anomalies")) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ total: 1, items: mockAnomalies }) });
     }
@@ -117,6 +134,20 @@ describe("MetricsPage", () => {
     await renderPage();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Resolve/i })).toBeInTheDocument();
+    });
+  });
+
+  it("loads and displays affected bets for an anomaly", async () => {
+    mockFetch();
+    const user = userEvent.setup();
+    await renderPage();
+
+    await waitFor(() => screen.getByRole("button", { name: /View affected bets/i }));
+    await user.click(screen.getByRole("button", { name: /View affected bets/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Improve onboarding activation")).toBeInTheDocument();
+      expect(screen.getByText(/directly linked to this bet/i)).toBeInTheDocument();
     });
   });
 

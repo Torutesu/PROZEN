@@ -19,6 +19,9 @@ const API_URL = process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:8787";
 const WS_ID = process.env["PLAYWRIGHT_WS_ID"];
 const PRODUCT_ID = process.env["PLAYWRIGHT_PRODUCT_ID"];
 const CLERK_SESSION_TOKEN = process.env["CLERK_SESSION_TOKEN"];
+const STRICT_E2E =
+  process.env["PLAYWRIGHT_STRICT"] === "1" ||
+  process.env["CI"] === "true";
 
 let seededWorkspaceProduct:
   | Promise<{ wsId: string; productId: string }>
@@ -38,7 +41,14 @@ async function ensureWorkspaceProduct(
 
   if (!seededWorkspaceProduct) {
     seededWorkspaceProduct = (async () => {
+      if (STRICT_E2E && !CLERK_SESSION_TOKEN) {
+        throw new Error(
+          "CLERK_SESSION_TOKEN is required in strict mode before auto-provisioning workspace/product.",
+        );
+      }
+
       const suffix = Math.random().toString(36).slice(2, 8);
+      const setupPath = "/api/v1/workspaces/onboarding/setup";
       const res = await apiReq("POST", "/api/v1/workspaces/onboarding/setup", {
         workspaceName: `E2E Workspace ${suffix}`,
         productName: `E2E Product ${suffix}`,
@@ -49,8 +59,12 @@ async function ensureWorkspaceProduct(
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
+        const hint =
+          res.status === 404
+            ? ` (check PLAYWRIGHT_API_URL=${API_URL} and that backend exposes ${setupPath})`
+            : "";
         throw new Error(
-          `Failed to auto-provision E2E workspace/product: ${res.status} ${body}`,
+          `Failed to auto-provision E2E workspace/product: ${res.status} ${body}${hint}`,
         );
       }
 
@@ -90,6 +104,11 @@ export const test = base.extend<{
 }>({
   authedPage: async ({ page }, applyFixture, testInfo) => {
     if (!CLERK_SESSION_TOKEN) {
+      if (STRICT_E2E) {
+        throw new Error(
+          "CLERK_SESSION_TOKEN is required when PLAYWRIGHT_STRICT=1 or in CI.",
+        );
+      }
       testInfo.skip(true, "CLERK_SESSION_TOKEN is required for authenticated E2E tests.");
       await applyFixture(page);
       return;
@@ -99,16 +118,24 @@ export const test = base.extend<{
   },
 
   apiRequest: async ({}, applyFixture) => {
-    const token = process.env["CLERK_SESSION_TOKEN"] ?? "test";
     const apiReq = async (method: string, path: string, body?: unknown) => {
-      return fetch(`${API_URL}${path}`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-actor-id": "playwright_e2e",
+      };
+      if (CLERK_SESSION_TOKEN) {
+        headers["Authorization"] = `Bearer ${CLERK_SESSION_TOKEN}`;
+      }
+      try {
+        return await fetch(`${API_URL}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to reach API ${API_URL}${path}: ${message}`);
+      }
     };
     await applyFixture(apiReq);
   },
@@ -122,6 +149,9 @@ export const test = base.extend<{
         error instanceof Error
           ? error.message
           : "Unable to determine workspace/product IDs for E2E tests.";
+      if (STRICT_E2E) {
+        throw new Error(message);
+      }
       testInfo.skip(true, message);
       await applyFixture("ws-e2e");
     }
@@ -136,6 +166,9 @@ export const test = base.extend<{
         error instanceof Error
           ? error.message
           : "Unable to determine workspace/product IDs for E2E tests.";
+      if (STRICT_E2E) {
+        throw new Error(message);
+      }
       testInfo.skip(true, message);
       await applyFixture("p-e2e");
     }

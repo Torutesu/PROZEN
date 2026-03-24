@@ -15,6 +15,11 @@ import { products, workspaces } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { getDailyBriefing } from "../services/briefing-store.js";
 import { getEveningReview, getWeeklyRetro } from "../services/review-store.js";
+import { listAllActiveIntegrations } from "../services/integration-store.js";
+import { syncStripeMetrics } from "../services/integrations/stripe-sync.js";
+import { syncPostHogMetrics } from "../services/integrations/posthog-sync.js";
+import { syncSentryMetrics } from "../services/integrations/sentry-sync.js";
+import { syncTypeformMetrics } from "../services/integrations/typeform-sync.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -161,6 +166,40 @@ async function runWeeklyRetro(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Integration polling — runs every hour for all active integrations
+// ---------------------------------------------------------------------------
+
+const SYNC_FNS: Record<string, (wid: string, pid: string) => Promise<void>> = {
+  stripe: syncStripeMetrics,
+  posthog: syncPostHogMetrics,
+  sentry: syncSentryMetrics,
+  typeform: syncTypeformMetrics,
+};
+
+async function runIntegrationPolling(): Promise<void> {
+  log("Running integration polling job...");
+  let succeeded = 0;
+  let failed = 0;
+  try {
+    const connections = await listAllActiveIntegrations();
+    for (const { workspaceId, productId, provider } of connections) {
+      const syncFn = SYNC_FNS[provider];
+      if (!syncFn) continue;
+      try {
+        await syncFn(workspaceId, productId);
+        succeeded++;
+      } catch (err) {
+        failed++;
+        log(`  ${provider} sync failed for product ${productId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    log(`Integration polling: ${succeeded} succeeded, ${failed} failed (${connections.length} total).`);
+  } catch (err) {
+    log(`Integration polling job error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Scheduler loop
 // ---------------------------------------------------------------------------
 // Checks every minute whether a scheduled job should fire.
@@ -217,6 +256,15 @@ function tick(): void {
     if (!firedHours.has(key)) {
       firedHours.add(key);
       void runWeeklyRetro();
+    }
+  }
+
+  // Integration polling — every hour (top of each hour)
+  {
+    const key = hourKey("integrations");
+    if (!firedHours.has(key)) {
+      firedHours.add(key);
+      void runIntegrationPolling();
     }
   }
 }

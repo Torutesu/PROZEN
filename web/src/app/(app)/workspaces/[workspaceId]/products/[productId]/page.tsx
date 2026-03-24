@@ -29,6 +29,7 @@ export default function ProductOverviewPage({ params }: Props) {
   const [decisions, setDecisions] = useState<DecisionLog[]>([]);
   const [briefing, setBriefing] = useState<DailyBriefingRecord | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(true);
+  const [showBriefingNotice, setShowBriefingNotice] = useState(false);
   const [eveningReview, setEveningReview] = useState<ProductReviewRecord | null>(null);
   const [weeklyRetro, setWeeklyRetro] = useState<ProductReviewRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,9 @@ export default function ProductOverviewPage({ params }: Props) {
   const isSunday = new Date().getDay() === 0;
 
   const base = `/workspaces/${workspaceId}/products/${productId}`;
+  const briefingReadKey = briefing
+    ? `prozen:briefing:read:${workspaceId}:${productId}:${briefing.briefingDate}`
+    : null;
 
   useEffect(() => {
     async function load() {
@@ -81,6 +85,25 @@ export default function ProductOverviewPage({ params }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, productId]);
 
+  useEffect(() => {
+    if (!briefingReadKey) {
+      setShowBriefingNotice(false);
+      return;
+    }
+    const alreadyRead =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(briefingReadKey) === "1";
+    setShowBriefingNotice(!alreadyRead);
+  }, [briefingReadKey]);
+
+  function dismissBriefingNotice() {
+    if (!briefingReadKey) return;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(briefingReadKey, "1");
+    }
+    setShowBriefingNotice(false);
+  }
+
   const activeBets = bets.filter((b) => b.status === "active" || b.status === "draft");
   const completedBets = bets.filter((b) => b.status === "completed");
 
@@ -93,6 +116,21 @@ export default function ProductOverviewPage({ params }: Props) {
 
   return (
     <div className="space-y-8">
+      {briefing && showBriefingNotice && (
+        <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 flex items-center justify-between gap-4">
+          <p className="text-sm">
+            New daily briefing is ready.
+          </p>
+          <button
+            type="button"
+            onClick={dismissBriefingNotice}
+            className="text-xs rounded-md border border-border px-2 py-1 hover:bg-background transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Today's Focus — Daily Briefing */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 space-y-3">
         <div className="flex items-center gap-2">
@@ -196,7 +234,7 @@ export default function ProductOverviewPage({ params }: Props) {
           {typeof weeklyRetro.metadata["betsCompleted"] === "number" && (
             <p className="text-xs text-muted-foreground">
               {weeklyRetro.metadata["betsCompleted"]} bet(s) completed ·{" "}
-              {weeklyRetro.metadata["betsActive"] ?? 0} active
+              {(weeklyRetro.metadata["betsActive"] as number | undefined) ?? 0} active
             </p>
           )}
         </div>

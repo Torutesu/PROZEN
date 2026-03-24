@@ -49,6 +49,10 @@ vi.mock("../services/github-sync-queue.js", () => ({
   drainGitHubSyncQueue: drainGitHubSyncQueueMock,
 }));
 
+vi.mock("../services/context-layer.js", () => ({
+  ingestContext: vi.fn().mockResolvedValue(undefined),
+}));
+
 interface DbState {
   selectQueue: unknown[][];
   insertQueue: unknown[][];
@@ -319,6 +323,114 @@ describe("github routes", () => {
     expect(dbState.insertedValues[0]?.["status"]).toBe("pending");
     expect(dbState.insertedValues[0]?.["payload"]).toMatchObject({
       repository: { full_name: "owner/repo" },
+    });
+  });
+
+  describe("proposal resolution (accept / dismiss)", () => {
+    function defaultSyncEvent(overrides: Record<string, unknown> = {}) {
+      return {
+        id: "gse_1",
+        workspaceId: "ws_1",
+        productId: "prod_1",
+        eventType: "push",
+        status: "analyzed",
+        proposalStatus: "pending",
+        analysis: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...overrides,
+      };
+    }
+
+    it("returns 422 when action is invalid", async () => {
+      const app = buildApp();
+      const res = await app.request(
+        "/api/v1/workspaces/ws_1/products/prod_1/github-sync-events/gse_1",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "unknown" }),
+        },
+      );
+      expect(res.status).toBe(422);
+    });
+
+    it("returns 404 when event does not exist", async () => {
+      dbState.selectQueue.push([]); // event not found
+      const app = buildApp();
+      const res = await app.request(
+        "/api/v1/workspaces/ws_1/products/prod_1/github-sync-events/gse_missing",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "dismiss" }),
+        },
+      );
+      expect(res.status).toBe(404);
+    });
+
+    it("dismisses a proposal and sets status to dismissed", async () => {
+      dbState.selectQueue.push([defaultSyncEvent()]);
+      const app = buildApp();
+      const res = await app.request(
+        "/api/v1/workspaces/ws_1/products/prod_1/github-sync-events/gse_1",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "dismiss" }),
+        },
+      );
+      const body = (await res.json()) as Record<string, unknown>;
+
+      expect(res.status).toBe(200);
+      expect(body["proposal_status"]).toBe("dismissed");
+      expect(dbState.updates[0]).toMatchObject({ proposalStatus: "dismissed" });
+    });
+
+    it("accepts a proposal and sets status to accepted", async () => {
+      dbState.selectQueue.push([defaultSyncEvent()]);
+      const app = buildApp();
+      const res = await app.request(
+        "/api/v1/workspaces/ws_1/products/prod_1/github-sync-events/gse_1",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "accept" }),
+        },
+      );
+      const body = (await res.json()) as Record<string, unknown>;
+
+      expect(res.status).toBe(200);
+      expect(body["proposal_status"]).toBe("accepted");
+      expect(dbState.updates[0]).toMatchObject({ proposalStatus: "accepted" });
+    });
+
+    it("triggers context ingestion on accept when analysis has affected bets", async () => {
+      const { ingestContext } = await import("../services/context-layer.js");
+      const analysis = {
+        summary: "Auth flow refactored",
+        affectedBets: [
+          { betSpecId: "bet_1", suggestedUpdate: "Update auth section", reason: "Refactor detected" },
+        ],
+      };
+      dbState.selectQueue.push([defaultSyncEvent({ analysis })]);
+      const app = buildApp();
+      await app.request(
+        "/api/v1/workspaces/ws_1/products/prod_1/github-sync-events/gse_1",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "accept" }),
+        },
+      );
+      // Allow the fire-and-forget ingestContext to settle
+      await new Promise((r) => setTimeout(r, 10));
+      expect(ingestContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: "ws_1",
+          tags: expect.arrayContaining(["living_spec"]),
+        }),
+      );
     });
   });
 });

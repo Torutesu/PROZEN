@@ -109,6 +109,31 @@ test.describe("Anomaly → Resolve Flow", () => {
     );
   });
 
+  test("anomaly card can expand affected bets details", async ({
+    authedPage: page,
+    wsId,
+    productId,
+  }) => {
+    await page.goto(`/workspaces/${wsId}/products/${productId}/metrics`);
+    const hasFetchError = await page.getByText("Failed to fetch").isVisible().catch(() => false);
+    if (hasFetchError) {
+      test.skip(true, "Metrics page could not fetch backend data — skipping");
+      return;
+    }
+
+    const viewBtn = page.getByRole("button", { name: /View affected bets/i }).first();
+    const hasAnomaly = await viewBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+    if (!hasAnomaly) {
+      test.skip(true, "No active anomaly available — skipping");
+      return;
+    }
+
+    await viewBtn.click();
+    await expect(page.getByRole("button", { name: /Hide affected bets/i }).first()).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
   test("anomaly affected-bets API responds for an active anomaly", async ({
     wsId,
     productId,
@@ -139,7 +164,11 @@ test.describe("Anomaly → Resolve Flow", () => {
       test.skip(true, `Affected-bets API unavailable (${affectedRes.status}) — skipping`);
       return;
     }
-    const affected = (await affectedRes.json()) as { items: unknown[] };
-    expect(Array.isArray(affected.items)).toBe(true);
+    const affected = (await affectedRes.json()) as {
+      anomalyId?: string;
+      affectedBets?: unknown[];
+    };
+    expect(affected.anomalyId).toBe(anomalyId);
+    expect(Array.isArray(affected.affectedBets)).toBe(true);
   });
 });

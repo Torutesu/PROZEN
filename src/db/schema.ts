@@ -352,6 +352,31 @@ export const productReviews = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// M15 — External Integrations (0014_m15_integrations.sql)
+// ---------------------------------------------------------------------------
+
+export const integrationConnections = pgTable(
+  "integration_connections",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    productId: text("product_id").notNull(),
+    provider: text("provider").notNull(), // 'stripe' | 'posthog' | 'sentry' | 'typeform'
+    encryptedConfig: text("encrypted_config").notNull(),
+    syncConfig: jsonb("sync_config").notNull().default({}),
+    isActive: boolean("is_active").notNull().default(true),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastSyncError: text("last_sync_error"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.productId, t.provider)],
+);
+
+// ---------------------------------------------------------------------------
 // M10 — Daily Briefing (0009_m10_daily_briefing.sql)
 // ---------------------------------------------------------------------------
 

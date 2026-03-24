@@ -19,6 +19,7 @@ import githubRoutes from "./api/github-routes.js";
 import workspaceRoutes from "./api/workspace-routes.js";
 import briefingRoutes from "./api/briefing-routes.js";
 import reviewRoutes from "./api/review-routes.js";
+import integrationRoutes from "./api/integration-routes.js";
 import { startGitHubSyncQueueWorker } from "./services/github-sync-queue.js";
 import { startScheduler } from "./jobs/scheduler.js";
 import { getSqlClient } from "./db/client.js";
@@ -109,6 +110,10 @@ app.route("/", workspaceRoutes);
 // M10 API routes
 app.route("/", briefingRoutes);
 app.route("/", reviewRoutes);
+
+// M15 API routes (integrations + Stripe webhook)
+// Note: Stripe webhook is at /api/v1/webhooks/stripe/:wid/:pid — no auth middleware needed
+app.route("/", integrationRoutes);
 
 // Fallback
 app.notFound((c) =>

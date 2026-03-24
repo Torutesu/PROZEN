@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import {
   metricApi,
+  type AffectedBetsResponse,
   type AnomalyRecord,
   type MetricLayer,
   type MetricRecord,
@@ -28,6 +29,12 @@ const LAYER_DESCRIPTIONS: Record<MetricLayer, string> = {
   kpi: "Mid-term business health indicators",
   activity: "Day-to-day operational signals",
 };
+
+interface AffectedBetsState {
+  loading: boolean;
+  error: string | null;
+  result: AffectedBetsResponse | null;
+}
 
 export default function MetricsPage({ params }: Props) {
   const { workspaceId, productId } = use(params);
@@ -56,6 +63,10 @@ export default function MetricsPage({ params }: Props) {
   const [readingNote, setReadingNote] = useState("");
   const [addingReading, setAddingReading] = useState(false);
   const [lastAnomaly, setLastAnomaly] = useState<AnomalyRecord | null>(null);
+  const [expandedAnomalies, setExpandedAnomalies] = useState<Record<string, boolean>>({});
+  const [affectedBetsByAnomaly, setAffectedBetsByAnomaly] = useState<
+    Record<string, AffectedBetsState>
+  >({});
 
   async function load() {
     setLoading(true);
@@ -130,8 +141,48 @@ export default function MetricsPage({ params }: Props) {
       await metricApi(workspaceId, productId, token).resolveAnomaly(anomalyId);
       setAnomalies((prev) => prev.filter((a) => a.id !== anomalyId));
       if (lastAnomaly?.id === anomalyId) setLastAnomaly(null);
+      setExpandedAnomalies((prev) => {
+        const next = { ...prev };
+        delete next[anomalyId];
+        return next;
+      });
+      setAffectedBetsByAnomaly((prev) => {
+        const next = { ...prev };
+        delete next[anomalyId];
+        return next;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to resolve.");
+    }
+  }
+
+  async function handleToggleAffectedBets(anomalyId: string) {
+    setExpandedAnomalies((prev) => ({ ...prev, [anomalyId]: !prev[anomalyId] }));
+
+    const existing = affectedBetsByAnomaly[anomalyId];
+    if (existing?.loading || existing?.result) return;
+
+    setAffectedBetsByAnomaly((prev) => ({
+      ...prev,
+      [anomalyId]: { loading: true, error: null, result: null },
+    }));
+
+    try {
+      const token = await getToken();
+      const result = await metricApi(workspaceId, productId, token).getAffectedBets(anomalyId);
+      setAffectedBetsByAnomaly((prev) => ({
+        ...prev,
+        [anomalyId]: { loading: false, error: null, result },
+      }));
+    } catch (e) {
+      setAffectedBetsByAnomaly((prev) => ({
+        ...prev,
+        [anomalyId]: {
+          loading: false,
+          error: e instanceof Error ? e.message : "Failed to load affected bets.",
+          result: null,
+        },
+      }));
     }
   }
 
@@ -161,12 +212,29 @@ export default function MetricsPage({ params }: Props) {
         {(lastAnomaly ?? anomalies.length > 0) && (
           <div className="space-y-2">
             {lastAnomaly && (
-              <AnomalyAlert anomaly={lastAnomaly} onResolve={handleResolveAnomaly} />
+              <AnomalyAlert
+                anomaly={lastAnomaly}
+                onResolve={handleResolveAnomaly}
+                onToggleAffectedBets={() => {
+                  void handleToggleAffectedBets(lastAnomaly.id);
+                }}
+                isAffectedBetsOpen={Boolean(expandedAnomalies[lastAnomaly.id])}
+                affectedBetsState={affectedBetsByAnomaly[lastAnomaly.id]}
+              />
             )}
             {anomalies
               .filter((a) => a.id !== lastAnomaly?.id)
               .map((a) => (
-                <AnomalyAlert key={a.id} anomaly={a} onResolve={handleResolveAnomaly} />
+                <AnomalyAlert
+                  key={a.id}
+                  anomaly={a}
+                  onResolve={handleResolveAnomaly}
+                  onToggleAffectedBets={() => {
+                    void handleToggleAffectedBets(a.id);
+                  }}
+                  isAffectedBetsOpen={Boolean(expandedAnomalies[a.id])}
+                  affectedBetsState={affectedBetsByAnomaly[a.id]}
+                />
               ))}
           </div>
         )}
@@ -411,9 +479,15 @@ function MetricCard({
 function AnomalyAlert({
   anomaly,
   onResolve,
+  onToggleAffectedBets,
+  isAffectedBetsOpen,
+  affectedBetsState,
 }: {
   anomaly: AnomalyRecord;
   onResolve: (id: string) => void;
+  onToggleAffectedBets: () => void;
+  isAffectedBetsOpen: boolean;
+  affectedBetsState?: AffectedBetsState;
 }) {
   const severityColors = {
     low: "border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20",
@@ -443,19 +517,55 @@ function AnomalyAlert({
             {anomaly.baselineValue !== null ? ` (baseline: ${anomaly.baselineValue})` : ""}
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs shrink-0"
-          onClick={() => onResolve(anomaly.id)}
-        >
-          Resolve
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs"
+            onClick={onToggleAffectedBets}
+          >
+            {isAffectedBetsOpen ? "Hide affected bets" : "View affected bets"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs"
+            onClick={() => onResolve(anomaly.id)}
+          >
+            Resolve
+          </Button>
+        </div>
       </div>
       {anomaly.impactNarrative && (
         <p className="text-xs text-muted-foreground leading-relaxed border-t border-current/20 pt-2">
           {anomaly.impactNarrative}
         </p>
+      )}
+      {isAffectedBetsOpen && (
+        <div className="border-t border-current/20 pt-2 space-y-2">
+          {affectedBetsState?.loading && (
+            <p className="text-xs text-muted-foreground">Loading affected bets...</p>
+          )}
+          {!affectedBetsState?.loading && affectedBetsState?.error && (
+            <p className="text-xs text-destructive">{affectedBetsState.error}</p>
+          )}
+          {!affectedBetsState?.loading &&
+            !affectedBetsState?.error &&
+            ((affectedBetsState?.result?.affectedBets.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground">No currently affected active/draft bets.</p>
+            ) : (
+              <div className="space-y-2">
+                {affectedBetsState?.result?.affectedBets.map((bet) => (
+                  <div key={bet.betId} className="rounded-md border border-current/20 px-2 py-2">
+                    <p className="text-xs font-medium">
+                      {bet.title} <span className="text-muted-foreground">({bet.status})</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{bet.linkageReason}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+        </div>
       )}
     </div>
   );

@@ -215,6 +215,20 @@ export interface AnomalyRecord {
   createdAt: string;
 }
 
+export interface AffectedBetRecord {
+  betId: string;
+  title: string;
+  status: string;
+  linkageReason: string;
+}
+
+export interface AffectedBetsResponse {
+  anomalyId: string;
+  metricId: string;
+  metricName: string;
+  affectedBets: AffectedBetRecord[];
+}
+
 export interface AddReadingResponse {
   reading: ReadingRecord;
   anomaly?: AnomalyRecord;
@@ -257,6 +271,10 @@ export function metricApi(
         `${base}/anomalies?includeResolved=${includeResolved}`,
         { token },
       ),
+    getAffectedBets: (anomalyId: string) =>
+      request<AffectedBetsResponse>(`${base}/anomalies/${anomalyId}/affected-bets`, {
+        token,
+      }),
     resolveAnomaly: (anomalyId: string) =>
       request(`${base}/anomalies/${anomalyId}/resolve`, {
         method: "POST",
@@ -585,6 +603,77 @@ export function briefingApi(
   const base = `/api/v1/workspaces/${workspaceId}/products/${productId}`;
   return {
     getToday: () => request<DailyBriefingRecord>(`${base}/daily-briefing`, { token }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Integrations (M15)
+// ---------------------------------------------------------------------------
+
+export type IntegrationProvider = "stripe" | "posthog" | "sentry" | "typeform";
+
+export interface IntegrationConnection {
+  id: string;
+  workspaceId: string;
+  productId: string;
+  provider: IntegrationProvider;
+  syncConfig: Record<string, unknown>;
+  isActive: boolean;
+  lastSyncedAt: string | null;
+  lastSyncError: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StripeConnectInput {
+  restrictedKey: string;
+  webhookSecret?: string;
+}
+
+export interface PostHogConnectInput {
+  apiKey: string;
+  projectId: string;
+  host?: string;
+}
+
+export interface SentryConnectInput {
+  authToken: string;
+  organizationSlug: string;
+  projectSlug: string;
+}
+
+export interface TypeformConnectInput {
+  accessToken: string;
+  formId: string;
+}
+
+export type ConnectInput =
+  | StripeConnectInput
+  | PostHogConnectInput
+  | SentryConnectInput
+  | TypeformConnectInput;
+
+export function integrationApi(
+  workspaceId: string,
+  productId: string,
+  token: string | null,
+) {
+  const base = `/api/v1/workspaces/${workspaceId}/products/${productId}`;
+  return {
+    list: () =>
+      request<{ items: IntegrationConnection[] }>(`${base}/integrations`, { token }),
+    connect: (provider: IntegrationProvider, input: ConnectInput) =>
+      request<IntegrationConnection>(`${base}/integrations/${provider}`, {
+        method: "POST",
+        body: JSON.stringify(input),
+        token,
+      }),
+    disconnect: (provider: IntegrationProvider) =>
+      request<{ deleted: boolean; provider: string }>(`${base}/integrations/${provider}`, {
+        method: "DELETE",
+        token,
+      }),
   };
 }
 

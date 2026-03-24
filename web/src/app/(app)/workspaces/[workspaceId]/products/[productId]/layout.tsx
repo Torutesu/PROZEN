@@ -19,6 +19,7 @@ export default function ProductLayout({ children, params }: Props) {
     { label: "Decision Log", href: `${base}/decision-logs` },
     { label: "Context Pack", href: `${base}/context-pack` },
     { label: "GitHub", href: `${base}/github` },
+    { label: "Integrations", href: `${base}/integrations` },
     { label: "Settings", href: `${base}/settings` },
   ];
 

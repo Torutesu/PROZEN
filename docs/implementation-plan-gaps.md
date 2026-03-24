@@ -1,12 +1,22 @@
 # PROZEN Gap Closure Implementation Plan
 
-Version: 1.0
+Version: 1.1
 Date: March 2026
-Status: Active
+Status: Executed (current branch, updated 2026-03-10)
 Reference: `docs/requirements-spec.md` Section 10 (Gap Register), `docs/development-plan.md` Section 9
 
 This document defines task-level implementation plans for each identified gap.
 Milestone owners: assign before starting each tier.
+
+## Execution Update (2026-03-10)
+
+- Tier 1 (GAP-001/002/003/006/007/008): Implemented
+- Tier 2 (GAP-004/009/010/011/012): Implemented
+- Tier 3 (GAP-005/013/014): Implemented
+- Validation:
+  - Backend tests: `npm run typecheck` and `npm test` passing
+  - Frontend component tests: `pnpm test` in `web/` passing
+  - E2E specs present in `web/e2e` for onboarding, bet lifecycle, anomaly resolve, GitHub sync
 
 ---
 
@@ -305,21 +315,21 @@ Milestone owners: assign before starting each tier.
 Use this as a launch readiness gate. All P0/P1 items must be checked before Phase 1 goes live.
 
 ### P0 — Must ship
-- [ ] GAP-001: Briefing generation calls Claude
-- [ ] GAP-002: Scheduled jobs running in staging
-- [ ] GAP-003: Learning synthesis on bet completion
-- [ ] GAP-006: Context Pack page interactive
-- [ ] GAP-007: Metrics dashboard page interactive
-- [ ] GAP-008: GitHub page interactive
+- [x] GAP-001: Briefing generation calls Claude
+- [x] GAP-002: Scheduled jobs running in staging
+- [x] GAP-003: Learning synthesis on bet completion
+- [x] GAP-006: Context Pack page interactive
+- [x] GAP-007: Metrics dashboard page interactive
+- [x] GAP-008: GitHub page interactive
 
 ### P1 — Required for core loop
-- [ ] GAP-004: Anomaly-to-bet impact API
-- [ ] GAP-009: Decision Logs page interactive
-- [ ] GAP-010: Product Overview page with real data
-- [ ] GAP-011: Briefing surface on first daily load
-- [ ] GAP-012: Living Spec Accept/Dismiss (backend + UI)
+- [x] GAP-004: Anomaly-to-bet impact API
+- [x] GAP-009: Decision Logs page interactive
+- [x] GAP-010: Product Overview page with real data
+- [x] GAP-011: Briefing surface on first daily load
+- [x] GAP-012: Living Spec Accept/Dismiss (backend + UI)
 
 ### P2 — Quality gate
-- [ ] GAP-005: Next-bet recommendation engine
-- [ ] GAP-013: Frontend component tests ≥ 80%
-- [ ] GAP-014: E2E suite passing for 4 core scenarios
+- [x] GAP-005: Next-bet recommendation engine
+- [x] GAP-013: Frontend component tests ≥ 80%
+- [x] GAP-014: E2E suite passing for 4 core scenarios

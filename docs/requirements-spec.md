@@ -281,21 +281,22 @@ The system shall execute the following autonomous routines without user initiati
 
 ## 10. Implementation Gap Register
 
-Current codebase status as of March 2026. Tracks delta between spec and shipped code.
+Historical gap register from early March 2026.  
+Status updated on **March 10, 2026** for the current branch.
 
-| Gap ID | Area | Description | Priority |
-|---|---|---|---|
-| GAP-001 | Backend | `getDailyBriefing()` has no Claude call — briefing generation is a stub | P0 |
-| GAP-002 | Backend | No scheduled job infrastructure (no cron/queue for morning/evening/weekly jobs) | P0 |
-| GAP-003 | Backend | Bet completion does not trigger learning synthesis or Context Pack update | P0 |
-| GAP-004 | Backend | No endpoint returning bets affected by a given anomaly | P1 |
-| GAP-005 | Backend | Next-bet recommendation engine missing | P1 |
-| GAP-006 | Frontend | Context Pack page is a stub — no input, versioning, or restore UI | P0 |
-| GAP-007 | Frontend | Metrics dashboard page is a stub — no chart, anomaly, or 3-layer view | P0 |
-| GAP-008 | Frontend | GitHub page is a stub — no OAuth, repo select, sync events, or proposal UI | P0 |
-| GAP-009 | Frontend | Decision Logs page is a stub — no create form or list view | P1 |
-| GAP-010 | Frontend | Product overview page has no dashboard content | P1 |
-| GAP-011 | Frontend | No in-app briefing surface or notification | P1 |
-| GAP-012 | Frontend | Living Spec proposal Accept/Dismiss UI missing | P1 |
-| GAP-013 | Testing | Zero frontend component tests | P2 |
-| GAP-014 | Testing | No E2E tests across module boundaries | P2 |
+| Gap ID | Area | Historical Description | Priority | Status (2026-03-10) |
+|---|---|---|---|---|
+| GAP-001 | Backend | `getDailyBriefing()` had no Claude call | P0 | Closed |
+| GAP-002 | Backend | No scheduled job infrastructure | P0 | Closed |
+| GAP-003 | Backend | Bet completion did not trigger learning synthesis / Context Pack update | P0 | Closed |
+| GAP-004 | Backend | No endpoint returning bets affected by an anomaly | P1 | Closed |
+| GAP-005 | Backend | Next-bet recommendation engine missing | P1 | Closed |
+| GAP-006 | Frontend | Context Pack page was stub | P0 | Closed |
+| GAP-007 | Frontend | Metrics dashboard page was stub | P0 | Closed |
+| GAP-008 | Frontend | GitHub page was stub | P0 | Closed |
+| GAP-009 | Frontend | Decision Logs page was stub | P1 | Closed |
+| GAP-010 | Frontend | Product overview page had no dashboard content | P1 | Closed |
+| GAP-011 | Frontend | In-app briefing surface/notification missing | P1 | Closed |
+| GAP-012 | Frontend | Living Spec proposal Accept/Dismiss UI missing | P1 | Closed |
+| GAP-013 | Testing | Frontend component tests missing | P2 | Closed |
+| GAP-014 | Testing | E2E suite missing | P2 | Closed |

@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "mkdir -p test-results && eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:strict": "PLAYWRIGHT_STRICT=1 playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
